@@ -23,7 +23,7 @@ interface TaskDetailProps {
 export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: TaskDetailProps) {
   if (!task) {
     return (
-      <section className="detailPanel emptyDetail">
+      <section className="detailPanel emptyDetail fade-in">
         <Code2 size={28} />
         <h2>等待任务</h2>
         <p>创建任务后，这里会显示阶段、日志、审查意见与交付摘要。</p>
@@ -36,7 +36,7 @@ export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: Ta
   const switchable = task.status === "stuck" || retryable;
 
   return (
-    <section className="detailPanel">
+    <section className="detailPanel fade-in">
       <div className="detailHeader">
         <div>
           <span className="eyebrow">{statusLabel(task.status)}</span>

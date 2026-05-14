@@ -10,7 +10,7 @@ import {
   Search,
   Settings,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   AgentDiagnostic,
@@ -22,6 +22,7 @@ import type {
   TaskWithRelations,
 } from "@/lib/types";
 import { HealthPill } from "@/components/common/HealthPill";
+import { AnimatedGradient } from "@/components/common/AnimatedGradient";
 import { ProjectSidebar } from "@/components/sidebar/ProjectSidebar";
 import { TaskDetail } from "@/components/task/TaskDetail";
 import { Composer } from "@/components/composer/Composer";
@@ -233,6 +234,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
 
         <div className="content">
           <section className="heroPanel">
+            <AnimatedGradient />
             <div className="appIcon">
               <Bot size={34} />
             </div>
