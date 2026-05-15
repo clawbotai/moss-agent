@@ -324,7 +324,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
               <div className="appIcon">
                 <Bot size={34} />
               </div>
-              <h1>协作调度台</h1>
+              <h1>MOSS 协作调度台</h1>
               <p>选择项目、输入任务，调度 Claude Code 与 Codex 按阶段协作。</p>
 
               <div className="quickGrid">
