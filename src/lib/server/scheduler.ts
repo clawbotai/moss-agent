@@ -28,6 +28,7 @@ const TERMINAL_STAGE_STATUSES = new Set<StageStatus>([
   "cancelled",
   "skipped",
 ]);
+const SKIPPED_STAGE_ROLES = new Set<TaskStage["role"]>(["summarize"]);
 
 type TaskEvent =
   | { type: "log"; taskId: string; log: TaskLog }
@@ -173,19 +174,35 @@ class TaskScheduler {
       }
 
       const summaries: string[] = [];
+      const mossAnswerSummaries: string[] = [];
+      const deliverableSummaries: string[] = [];
       for (const stage of stages) {
         if (controller.signal.aborted) throw new Error("任务已取消");
+        if (SKIPPED_STAGE_ROLES.has(stage.role)) {
+          updateStage(stage.id, {
+            status: "skipped",
+            outputSummary: null,
+            completedAt: stage.completedAt || nowIso(),
+          });
+          continue;
+        }
         if (TERMINAL_STAGE_STATUSES.has(stage.status)) {
           if (stage.outputSummary) {
             summaries.push(`${stage.name}：${stage.outputSummary.slice(0, MAX_STAGE_SUMMARY_LENGTH)}`);
+            collectRoleSummary(stage, mossAnswerSummaries, deliverableSummaries);
           }
           continue;
         }
         await this.runStage(taskId, project.path, stage, summaries, controller);
+        const completedStage = listStages(taskId).find((item) => item.id === stage.id);
+        if (completedStage) {
+          collectRoleSummary(completedStage, mossAnswerSummaries, deliverableSummaries);
+        }
       }
 
-      const summary = summaries.length
-        ? summaries.map((item, index) => `${index + 1}. ${item}`).join("\n")
+      const finalSummaries = mossAnswerSummaries.length ? mossAnswerSummaries : deliverableSummaries.length ? deliverableSummaries : summaries;
+      const summary = finalSummaries.length
+        ? finalSummaries.map((item, index) => `${index + 1}. ${item}`).join("\n")
         : "任务已完成，但没有生成阶段摘要。";
       updateTaskStatus(taskId, "completed", {
         currentStage: null,
@@ -237,19 +254,6 @@ class TaskScheduler {
     updateTaskStatus(taskId, "running", { currentStage: stage.name });
     this.log(taskId, "info", `阶段开始：${stage.name}`, { stageId: stage.id, agent: stage.agent });
     this.emitTask(taskId);
-
-    if (stage.role === "summarize") {
-      const output = this.buildFinalSummary(previousSummaries);
-      updateStage(stage.id, {
-        status: "completed",
-        outputSummary: output,
-        completedAt: nowIso(),
-      });
-      previousSummaries.push(`${stage.name}：${output}`);
-      this.log(taskId, "info", output, { stageId: stage.id });
-      this.emitTask(taskId);
-      return;
-    }
 
     const diagnostic = await getAgent(stage.agent).detect();
     if (!diagnostic.available) {
@@ -317,14 +321,6 @@ class TaskScheduler {
     this.emitTask(taskId);
   }
 
-  private buildFinalSummary(previousSummaries: string[]) {
-    return [
-      "交付汇总已生成。",
-      "阶段结果：",
-      previousSummaries.map((item, index) => `${index + 1}. ${item}`).join("\n"),
-    ].join("\n");
-  }
-
   private log(taskId: string, level: LogLevel, message: string, payload?: unknown) {
     const log = appendLog(taskId, level, message, {
       stageId:
@@ -342,6 +338,21 @@ class TaskScheduler {
       taskId,
       task: getTaskWithRelations(taskId),
     } satisfies TaskEvent);
+  }
+}
+
+function collectRoleSummary(
+  stage: TaskStage,
+  mossAnswerSummaries: string[],
+  deliverableSummaries: string[],
+) {
+  if (!stage.outputSummary) return;
+  const truncated = stage.outputSummary.slice(0, MAX_STAGE_SUMMARY_LENGTH);
+  if (stage.role === "audit") {
+    mossAnswerSummaries.push(truncated);
+  }
+  if (stage.role === "implement") {
+    deliverableSummaries.push(`${stage.name}：${truncated}`);
   }
 }
 

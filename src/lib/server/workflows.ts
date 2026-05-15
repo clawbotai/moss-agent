@@ -6,21 +6,18 @@ export function buildWorkflow(task: Task): StageSeed[] {
   if (task.mode === "codexOnly") {
     return [
       stage("Codex 直接开发", "codex", "implement", 0),
-      stage("汇总交付", "custom", "summarize", 1),
     ];
   }
 
   if (task.mode === "claudeOnly") {
     return [
       stage("Claude Code 直接开发", "claude", "implement", 0),
-      stage("汇总交付", "custom", "summarize", 1),
     ];
   }
 
   if (task.mode === "custom") {
     return [
       stage("自定义 agent 执行", task.targetAgent || "custom", "implement", 0),
-      stage("汇总交付", "custom", "summarize", 1),
     ];
   }
 
@@ -30,7 +27,6 @@ export function buildWorkflow(task: Task): StageSeed[] {
     stage("Claude Code 修订计划", "claude", "revise", 2),
     stage("Codex 执行开发", "codex", "implement", 3),
     stage("Claude Code 审核结果", "claude", "audit", 4),
-    stage("汇总交付", "custom", "summarize", 5),
   ];
 }
 
@@ -88,8 +84,8 @@ export function buildStagePrompt(
   }
 
   if (stage.role === "audit") {
-    return `${base}请审核当前结果，重点检查功能完整性、风险、测试缺口和交付是否可接受。`;
+    return `${base}请审核当前结果，重点检查功能完整性、风险、测试缺口和交付是否可接受。请以面向用户的 Moss 回答形式输出最终结论，不要重复阶段名称。请控制在 500 字以内，使用 Markdown 格式。`;
   }
 
-  return `${base}请汇总最终交付结果。`;
+  return `${base}请按当前阶段职责完成任务，并输出必要结果。`;
 }

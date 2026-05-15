@@ -2,14 +2,13 @@
 
 import {
   AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   MessageSquareText,
   TerminalSquare,
   User,
 } from "lucide-react";
 import type { TaskLog, TaskWithRelations } from "@/lib/types";
-import type { CollaborationEntry, ConversationTurn } from "./types";
+import type { AnswerEntry, AnswerEntrySource, CollaborationEntry, ConversationTurn } from "./types";
 import { LogList } from "./LogList";
 import { MarkdownBlock } from "./MarkdownBlock";
 import { TimelineStage } from "./TimelineStage";
@@ -32,59 +31,9 @@ export function ConversationTurnView({
       {turn.collaboration.map((entry) => (
         <TimelineCollaborationEntry key={entry.key} entry={entry} logsByStage={logsByStage} />
       ))}
-      {turn.answers.map((answer) => {
-        if (answer.type === "message") {
-          return <TimelineMossMessage key={answer.key} message={answer.message} />;
-        }
-        return <TimelineSummary key={answer.key} summary={answer.summary} completedAt={answer.at} />;
-      })}
-    </div>
-  );
-}
-
-export function TimelinePrompt({
-  prompt,
-  createdAt,
-  includeInContext,
-}: {
-  prompt: string;
-  createdAt: string;
-  includeInContext?: boolean;
-}) {
-  return (
-    <div className="tlItem tlPrompt">
-      <div className="tlDot">
-        <User size={14} />
-      </div>
-      <div className="tlContent">
-        <div className="tlHead tlMessageHead">
-          <strong>用户</strong>
-          <time>{new Date(createdAt).toLocaleString()}</time>
-          {includeInContext && <span className="tlContextBadge">进入上下文</span>}
-        </div>
-        <div className="tlCard tlUserCard">
-          <p className="tlPromptText">{prompt}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function TimelineMossMessage({ message }: { message: TaskWithRelations["messages"][number] }) {
-  return (
-    <div className="tlItem tlMessages tlMossMessage">
-      <div className="tlDot">
-        <MessageSquareText size={14} />
-      </div>
-      <div className="tlContent">
-        <div className="tlHead tlMessageHead">
-          <strong>Moss</strong>
-          <time>{new Date(message.createdAt).toLocaleString()}</time>
-        </div>
-        <div className="tlCard tlDeliveryCard">
-          <MarkdownBlock content={message.content} className="inlineSummary" />
-        </div>
-      </div>
+      {turn.answers.map((answer) => (
+        <TimelineMossAnswer key={answer.key} answer={answer} />
+      ))}
     </div>
   );
 }
@@ -168,32 +117,6 @@ function TimelineError({
   );
 }
 
-export function TimelineSummary({
-  summary,
-  completedAt,
-}: {
-  summary: string;
-  completedAt: number;
-}) {
-  return (
-    <div className="tlItem tlSummary">
-      <div className="tlDot tlDotSuccess">
-        <CheckCircle2 size={14} />
-      </div>
-      <div className="tlContent">
-        <div className="tlHead tlMessageHead">
-          <strong>Moss</strong>
-          <time>{Number.isFinite(completedAt) ? new Date(completedAt).toLocaleString() : ""}</time>
-          <span className="tlStatus tlStatus-completed">READY</span>
-        </div>
-        <div className="tlCard tlDeliveryCard">
-          <MarkdownBlock content={summary} className="inlineSummary" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function TimelineDebugLogs({ logs }: { logs: TaskLog[] }) {
   return (
     <div className="tlItem tlTaskLogs">
@@ -209,6 +132,59 @@ export function TimelineDebugLogs({ logs }: { logs: TaskLog[] }) {
           </summary>
           <LogList logs={logs} />
         </details>
+      </div>
+    </div>
+  );
+}
+
+export function TimelinePrompt({
+  prompt,
+  createdAt,
+  includeInContext,
+}: {
+  prompt: string;
+  createdAt: string;
+  includeInContext?: boolean;
+}) {
+  return (
+    <div className="tlItem tlPrompt">
+      <div className="tlDot">
+        <User size={14} />
+      </div>
+      <div className="tlContent">
+        <div className="tlHead tlMessageHead">
+          <strong>用户输入任务</strong>
+          <time>{new Date(createdAt).toLocaleString()}</time>
+          {includeInContext && <span className="tlContextBadge">进入上下文</span>}
+        </div>
+        <div className="tlCard tlUserCard">
+          <p className="tlPromptText">{prompt}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ANSWER_SOURCE_LABEL: Record<AnswerEntrySource, string> = {
+  "agent-message": "Moss Agent",
+  "stage-summary": "Moss 交付摘要",
+  "task-summary": "Moss 交付摘要",
+};
+
+export function TimelineMossAnswer({ answer }: { answer: AnswerEntry }) {
+  return (
+    <div className="tlItem tlMessages tlMossMessage">
+      <div className="tlDot">
+        <MessageSquareText size={14} />
+      </div>
+      <div className="tlContent">
+        <div className="tlHead tlMessageHead">
+          <strong>{ANSWER_SOURCE_LABEL[answer.source]}</strong>
+          <time>{new Date(answer.createdAt).toLocaleString()}</time>
+        </div>
+        <div className="tlCard tlDeliveryCard">
+          <MarkdownBlock content={answer.content} className="inlineSummary" />
+        </div>
       </div>
     </div>
   );

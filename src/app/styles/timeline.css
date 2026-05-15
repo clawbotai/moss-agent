@@ -43,11 +43,6 @@
   color: var(--warning);
 }
 
-.tlDotSuccess {
-  border-color: var(--success);
-  color: var(--success);
-}
-
 .tlContent {
   min-width: 0;
   padding-bottom: 10px;
@@ -65,28 +60,20 @@
   background: rgba(255, 255, 255, 0.018);
 }
 
-.tlPrompt .tlDot,
-.tlUserMessage .tlDot {
+.tlPrompt .tlDot {
   border-color: color-mix(in srgb, var(--tl-user) 52%, transparent);
   background: linear-gradient(135deg, #7c3aed, var(--tl-user));
   color: #fff;
   box-shadow: 0 8px 24px var(--tl-user-glow);
 }
 
-.tlPrompt .tlCard,
-.tlUserMessage .tlCard {
+.tlPrompt .tlCard {
   border-color: var(--tl-user-border);
   background: var(--tl-user-bg);
 }
 
-.tlPrompt .tlPromptText,
-.tlUserMessage .tlPromptText {
+.tlPrompt .tlPromptText {
   color: var(--text-primary);
-}
-
-.tlAgentMessage .tlCard {
-  border-color: var(--border-subtle);
-  background: rgba(255, 255, 255, 0.018);
 }
 
 .tlDeliveryCard {
@@ -107,8 +94,7 @@
   margin-top: 0;
 }
 
-.tlMossMessage .tlDot,
-.tlSummary .tlDot {
+.tlMossMessage .tlDot {
   background: var(--tl-moss-dot);
 }
 
@@ -373,42 +359,4 @@
 .inlineWarning p {
   color: var(--text-secondary);
   font-size: 13px;
-}
-
-/* Timeline Grid */
-.timeline {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-  margin: 16px 0;
-}
-
-.stage {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
-}
-
-.stage:hover {
-  border-color: var(--border-default);
-}
-
-.stage strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stage small {
-  display: block;
-  font-size: 11px;
-  color: var(--text-tertiary);
 }

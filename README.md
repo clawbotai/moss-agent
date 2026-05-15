@@ -33,7 +33,7 @@ MOSS_CLAUDE_BIN=/opt/homebrew/bin/claude
 
 ## 工作流
 
-- 协作模式：Claude Code 生成计划，Codex 审查计划，Claude Code 修订计划，Codex 执行开发，Claude Code 审核结果，调度器汇总交付。
+- 协作模式：Claude Code 生成计划，Codex 审查计划，Claude Code 修订计划，Codex 执行开发，Claude Code 审核结果，并作为 Moss 最终回答展示。
 - Codex 直接模式：跳过 Claude Code，直接由 Codex 开发。
 - Claude 直接模式：跳过 Codex，直接由 Claude Code 开发。
 - 自定义 agent：预留扩展点，后续实现适配器即可接入。

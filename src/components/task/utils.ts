@@ -13,6 +13,7 @@ export function isKeyLog(log: TaskLog) {
 }
 
 export function stageFallbackText(stage: TaskStage) {
+  if (stage.role === "audit" && stage.status === "completed") return "审核输出已作为 Moss 回答展示。";
   if (stage.status === "running") return "正在执行，等待 agent 输出。";
   if (stage.status === "completed") return "阶段已完成，暂无摘要。";
   if (stage.status === "failed") return "阶段执行失败，暂无详细摘要。";
@@ -44,11 +45,12 @@ export function formatDuration(startedAt: Date, finishedAt: Date) {
 }
 
 export function getVisibleStages(stages: TaskStage[]): TaskStage[] {
-  if (stages.length === 0) return [];
+  const visibleStages = stages.filter((stage) => stage.role !== "summarize");
+  if (visibleStages.length === 0) return [];
 
   let lastActiveIndex = -1;
-  for (let i = stages.length - 1; i >= 0; i--) {
-    if (stages[i].status !== "queued") {
+  for (let i = visibleStages.length - 1; i >= 0; i--) {
+    if (visibleStages[i].status !== "queued") {
       lastActiveIndex = i;
       break;
     }
@@ -56,11 +58,12 @@ export function getVisibleStages(stages: TaskStage[]): TaskStage[] {
 
   if (lastActiveIndex === -1) return [];
 
-  return stages.slice(0, lastActiveIndex + 1);
+  return visibleStages.slice(0, lastActiveIndex + 1);
 }
 
 export function buildConversationTurns(task: TaskWithRelations): ConversationTurn[] {
   const taskCreatedAt = toTime(task.createdAt);
+  const terminalAt = toTime(task.completedAt || task.updatedAt || task.createdAt);
   const questions: ConversationQuestion[] = [
     {
       key: "prompt",
@@ -83,18 +86,21 @@ export function buildConversationTurns(task: TaskWithRelations): ConversationTur
   });
 
   const collaboration = buildCollaborationEntries(task);
-  const answers = buildAnswerEntries(task);
+  const agentAnswers = buildAgentMessageAnswers(task);
 
   return questions.map((question, index) => {
     const startAt = toTime(question.createdAt);
     const nextQuestionAt = index < questions.length - 1 ? toTime(questions[index + 1].createdAt) : Number.POSITIVE_INFINITY;
     const normalizedStartAt = Number.isFinite(startAt) ? startAt : taskCreatedAt;
+    const messageAnswers = sliceByTime(agentAnswers, normalizedStartAt, nextQuestionAt, taskCreatedAt);
+    const stageAnswer = buildStageAnswer(task, normalizedStartAt, nextQuestionAt, taskCreatedAt, terminalAt);
+    const allAnswers = stageAnswer ? [...messageAnswers, stageAnswer] : messageAnswers;
 
     return {
       key: question.key,
       question,
       collaboration: sliceByTime(collaboration, normalizedStartAt, nextQuestionAt, taskCreatedAt),
-      answers: sliceByTime(answers, normalizedStartAt, nextQuestionAt, taskCreatedAt),
+      answers: sortTimedEntries(allAnswers, taskCreatedAt),
     };
   });
 }
@@ -167,34 +173,76 @@ function buildCollaborationEntries(task: TaskWithRelations): CollaborationEntry[
   return sortTimedEntries(entries, taskCreatedAt);
 }
 
-function buildAnswerEntries(task: TaskWithRelations): AnswerEntry[] {
+function buildAgentMessageAnswers(task: TaskWithRelations): AnswerEntry[] {
   const taskCreatedAt = toTime(task.createdAt);
-  const terminalAt = toTime(task.completedAt || task.updatedAt || task.createdAt);
-  const terminalOrder = task.stages.length * 10 + 100;
   const entries: AnswerEntry[] = [];
 
   task.messages.forEach((message, index) => {
     if (message.role !== "agent") return;
     entries.push({
-      type: "message",
       key: `answer-${message.id}`,
       at: toTime(message.createdAt),
       order: task.stages.length * 10 + 300 + index,
-      message,
+      content: message.content,
+      createdAt: message.createdAt,
+      source: "agent-message",
     });
   });
 
-  if (task.summary) {
-    entries.push({
-      type: "summary",
-      key: "task-summary",
-      at: terminalAt,
-      order: terminalOrder + 1,
-      summary: task.summary,
-    });
+  return sortTimedEntries(entries, taskCreatedAt);
+}
+
+function buildStageAnswer(
+  task: TaskWithRelations,
+  startAt: number,
+  nextQuestionAt: number,
+  fallbackAt: number,
+  terminalAt: number,
+): AnswerEntry | null {
+  const completedStages = task.stages.filter((stage) => {
+    if (stage.role === "summarize") return false;
+    if (stage.status !== "completed") return false;
+    const hasContent = stage.outputSummary || stage.errorMessage;
+    if (!hasContent && stage.role !== "audit") return false;
+    const completedAt = toTime(stage.completedAt || stage.startedAt || task.createdAt);
+    const normalizedAt = Number.isFinite(completedAt) ? completedAt : fallbackAt;
+    return normalizedAt >= startAt && normalizedAt < nextQuestionAt;
+  });
+  const auditStages = completedStages.filter((stage) => stage.role === "audit");
+  const implementStages = completedStages.filter((stage) => stage.role === "implement");
+  const answerStages = auditStages.length ? auditStages : implementStages.length ? implementStages : completedStages;
+
+  if (answerStages.length > 0) {
+    const at = answerStages.reduce((latest, stage) => {
+      const completedAt = toTime(stage.completedAt || stage.startedAt || task.createdAt);
+      return Math.max(latest, Number.isFinite(completedAt) ? completedAt : fallbackAt);
+    }, fallbackAt);
+    const content = answerStages
+      .map((stage, index) => `${index + 1}. ${stage.name}：${stage.outputSummary || stage.errorMessage || "审核已完成。"}`)
+      .join("\n\n");
+
+    return {
+      key: `stage-answer-${answerStages.map((stage) => stage.id).join("-")}`,
+      at,
+      order: task.stages.length * 10 + 500,
+      content,
+      createdAt: new Date(at).toISOString(),
+      source: "stage-summary",
+    };
   }
 
-  return sortTimedEntries(entries, taskCreatedAt);
+  if (task.summary && terminalAt >= startAt && terminalAt < nextQuestionAt) {
+    return {
+      key: "task-summary",
+      at: terminalAt,
+      order: task.stages.length * 10 + 500,
+      content: task.summary,
+      createdAt: new Date(terminalAt).toISOString(),
+      source: "task-summary",
+    };
+  }
+
+  return null;
 }
 
 function sortTimedEntries<Entry extends CollaborationEntry | AnswerEntry>(entries: Entry[], fallbackAt: number): Entry[] {

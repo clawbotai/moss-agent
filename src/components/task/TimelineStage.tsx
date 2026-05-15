@@ -31,7 +31,10 @@ export function TimelineStage({
   for (let i = logs.length - 1; i >= 0; i--) {
     if (isKeyLog(logs[i])) { keyLog = logs[i]; break; }
   }
-  const displayText = stage.outputSummary || keyLog?.message || stage.errorMessage || "";
+  const MAX_AUDIT_DISPLAY = 300;
+  const rawAuditText = keyLog?.message || stage.errorMessage || "";
+  const auditText = rawAuditText.length > MAX_AUDIT_DISPLAY ? `${rawAuditText.slice(0, MAX_AUDIT_DISPLAY)}…` : rawAuditText;
+  const displayText = stage.role === "audit" ? auditText : stage.outputSummary || keyLog?.message || stage.errorMessage || "";
   const showBody = Boolean(displayText || stage.status === "running" || stage.status === "completed" || stage.status === "failed");
 
   return (

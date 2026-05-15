@@ -100,7 +100,7 @@ function parentContextSection(task: TaskWithRelations, includeMessages: boolean)
 
 function stagesSection(stages: TaskStage[]) {
   const completed = stages
-    .filter((stage) => stage.outputSummary)
+    .filter((stage) => !isSkippedContextStage(stage) && stage.outputSummary)
     .map((stage, index) => `${index + 1}. ${stage.name}（${stage.agent}/${stage.role}）：${trimSection(stage.outputSummary || "")}`);
 
   return completed.length ? `## 阶段摘要\n${completed.join("\n")}` : "## 阶段摘要\n暂无阶段摘要。";
@@ -108,15 +108,15 @@ function stagesSection(stages: TaskStage[]) {
 
 function reviewSection(stages: TaskStage[]) {
   const reviews = stages
-    .filter((stage) => ["review", "audit"].includes(stage.role) && stage.outputSummary)
+    .filter((stage) => (stage.role === "review" || stage.role === "audit") && stage.outputSummary)
     .map((stage, index) => `${index + 1}. ${stage.name}：${trimSection(stage.outputSummary || "")}`);
 
-  return reviews.length ? `## 审查结论\n${reviews.join("\n")}` : "## 审查结论\n暂无审查结论。";
+  return reviews.length ? `## 审查/审核结论\n${reviews.join("\n")}` : "## 审查/审核结论\n暂无审查结论。";
 }
 
 function parentStagesSection(stages: TaskStage[]) {
   const completed = stages
-    .filter((stage) => stage.outputSummary)
+    .filter((stage) => !isSkippedContextStage(stage) && stage.outputSummary)
     .map((stage, index) => `${index + 1}. ${stage.name}：${trimSection(stage.outputSummary || "")}`);
 
   return completed.length ? `### 父任务阶段摘要\n${completed.join("\n")}` : "### 父任务阶段摘要\n暂无阶段摘要。";
@@ -124,10 +124,14 @@ function parentStagesSection(stages: TaskStage[]) {
 
 function parentReviewSection(stages: TaskStage[]) {
   const reviews = stages
-    .filter((stage) => ["review", "audit"].includes(stage.role) && stage.outputSummary)
+    .filter((stage) => (stage.role === "review" || stage.role === "audit") && stage.outputSummary)
     .map((stage, index) => `${index + 1}. ${stage.name}：${trimSection(stage.outputSummary || "")}`);
 
-  return reviews.length ? `### 父任务审查结论\n${reviews.join("\n")}` : "### 父任务审查结论\n暂无审查结论。";
+  return reviews.length ? `### 父任务审查/审核结论\n${reviews.join("\n")}` : "### 父任务审查/审核结论\n暂无审查结论。";
+}
+
+function isSkippedContextStage(stage: TaskStage) {
+  return stage.role === "audit" || stage.role === "summarize";
 }
 
 function parentMessagesSection(parent: TaskWithRelations, includeMessages: boolean) {

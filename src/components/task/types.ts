@@ -37,21 +37,16 @@ export type CollaborationEntry =
       status: string;
     };
 
-export type AnswerEntry =
-  | {
-      type: "summary";
-      key: string;
-      at: number;
-      order: number;
-      summary: string;
-    }
-  | {
-      type: "message";
-      key: string;
-      at: number;
-      order: number;
-      message: TaskMessage;
-    };
+export type AnswerEntrySource = "agent-message" | "stage-summary" | "task-summary";
+
+export type AnswerEntry = {
+  key: string;
+  at: number;
+  order: number;
+  content: string;
+  createdAt: string;
+  source: AnswerEntrySource;
+};
 
 export type ConversationTurn = {
   key: string;
