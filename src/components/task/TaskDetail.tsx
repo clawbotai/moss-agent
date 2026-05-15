@@ -2,16 +2,12 @@
 
 import {
   AlertTriangle,
-  Bot,
   CheckCircle2,
   ChevronDown,
   Clock3,
-  CircleStop,
   Code2,
   Copy,
   MessageSquareText,
-  Play,
-  RotateCcw,
   TerminalSquare,
   User,
 } from "lucide-react";
@@ -87,7 +83,7 @@ type ConversationTurn = {
 
 const VALID_STAGE_STATUSES = new Set(["queued", "running", "completed", "failed", "waiting", "skipped", "cancelled"]);
 
-export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: TaskDetailProps) {
+export function TaskDetail({ task }: TaskDetailProps) {
   const logsByStage = useMemo(() => {
     const map = new Map<string, TaskLog[]>();
     if (!task) return map;
@@ -112,42 +108,8 @@ export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: Ta
 
   if (!task) return null;
 
-  const cancellable = ["queued", "running", "stuck"].includes(task.status);
-  const retryable = !["queued", "running"].includes(task.status);
-  const switchable = task.status === "stuck" || retryable;
-
   return (
     <section className="detailPanel taskRunView fade-in">
-      <div className="detailHeader runHeader">
-        <div>
-          <span className="eyebrow">{statusLabel(task.status)}</span>
-          <h2>{task.title}</h2>
-          <p>{task.project?.path}</p>
-        </div>
-        <div className="actionRow">
-          <button disabled={task.status !== "stuck"} onClick={onContinue} type="button">
-            <Play size={15} />
-            继续等待
-          </button>
-          <button disabled={!cancellable} onClick={onCancel} type="button">
-            <CircleStop size={15} />
-            取消
-          </button>
-          <button disabled={!retryable} onClick={onRetry} type="button">
-            <RotateCcw size={15} />
-            重试
-          </button>
-          <button disabled={!switchable} onClick={() => onSwitch("codex")} type="button">
-            <Bot size={15} />
-            改用 Codex
-          </button>
-          <button disabled={!switchable} onClick={() => onSwitch("claude")} type="button">
-            <Bot size={15} />
-            改用 Claude
-          </button>
-        </div>
-      </div>
-
       <div className="timelineStream">
         {conversationTurns.map((turn) => (
           <ConversationTurnView key={turn.key} turn={turn} logsByStage={logsByStage} />
@@ -180,7 +142,7 @@ function ConversationTurnView({
         if (answer.type === "message") {
           return <TimelineMossMessage key={answer.key} message={answer.message} />;
         }
-        return <TimelineSummary key={answer.key} summary={answer.summary} />;
+        return <TimelineSummary key={answer.key} summary={answer.summary} completedAt={answer.at} />;
       })}
     </div>
   );
@@ -413,8 +375,10 @@ function MarkdownBlock({ content, className = "" }: { content: string; className
 
 function TimelineSummary({
   summary,
+  completedAt,
 }: {
   summary: string;
+  completedAt: number;
 }) {
   return (
     <div className="tlItem tlSummary">
@@ -424,6 +388,7 @@ function TimelineSummary({
       <div className="tlContent">
         <div className="tlHead tlMessageHead">
           <strong>Moss</strong>
+          <time>{Number.isFinite(completedAt) ? new Date(completedAt).toLocaleString() : ""}</time>
           <span className="tlStatus tlStatus-completed">READY</span>
         </div>
         <div className="tlCard tlDeliveryCard">
