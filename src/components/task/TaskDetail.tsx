@@ -97,7 +97,7 @@ export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: Ta
           <TimelineMessage key={message.id} message={message} />
         ))}
 
-        {task.stages.map((stage) => (
+        {getVisibleStages(task.stages).map((stage) => (
           <TimelineStage
             key={stage.id}
             stage={stage}
@@ -371,4 +371,20 @@ function formatDuration(startedAt: Date, finishedAt: Date) {
   if (minutes < 60) return `${minutes}m ${restSeconds}s`;
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
+}
+
+function getVisibleStages(stages: TaskStage[]): TaskStage[] {
+  if (stages.length === 0) return [];
+
+  let lastActiveIndex = -1;
+  for (let i = stages.length - 1; i >= 0; i--) {
+    if (stages[i].status !== "queued") {
+      lastActiveIndex = i;
+      break;
+    }
+  }
+
+  if (lastActiveIndex === -1) return [];
+
+  return stages.slice(0, lastActiveIndex + 1);
 }
