@@ -511,8 +511,14 @@ export function createTaskMessage(input: {
     );
 
   getDb()
-    .prepare("UPDATE tasks SET updatedAt = ? WHERE id = ?")
-    .run(now, input.taskId);
+    .prepare("UPDATE tasks SET updatedAt = ?, contextPolicy = ? WHERE id = ?")
+    .run(
+      now,
+      input.includeInContext && !task.contextPolicy.includes("selectedMessages")
+        ? `${task.contextPolicy}+selectedMessages`
+        : task.contextPolicy,
+      input.taskId,
+    );
 
   return message;
 }

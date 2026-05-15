@@ -193,32 +193,33 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     }
   }
 
-  async function deriveTask(event?: FormEvent) {
+  async function appendTaskMessage(event?: FormEvent) {
     event?.preventDefault();
     if (!selectedTaskId || !prompt.trim()) return;
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/tasks/${selectedTaskId}/continue`, {
+      const response = await fetch(`/api/tasks/${selectedTaskId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "derive",
-          prompt,
-          mode,
-          targetAgent: mode === "codexOnly" ? "codex" : mode === "claudeOnly" ? "claude" : null,
-          budget,
-          permission,
-          includeMessages: true,
+          content: prompt,
+          // 追加消息默认进入上下文，确保任务执行时能获取到用户补充说明
+          includeInContext: true,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "创建派生任务失败");
+      const data = (await response.json()) as { task?: TaskWithRelations; error?: string };
+      if (!response.ok) throw new Error(data.error || "追加任务说明失败");
       setPrompt("");
-      setSelectedTaskId(data.task.id);
-      await refresh();
+      if (data.task) {
+        const appendedTask = data.task;
+        setTaskDetails(appendedTask);
+        setTasks((current) => current.map((task) => (task.id === appendedTask.id ? appendedTask : task)));
+      } else {
+        await refresh();
+      }
     } catch (innerError) {
-      setError(innerError instanceof Error ? innerError.message : "创建派生任务失败");
+      setError(innerError instanceof Error ? innerError.message : "追加任务说明失败");
     } finally {
       setBusy(false);
     }
@@ -416,7 +417,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           onPermissionChange={setPermission}
           onMemoryModeChange={setMemoryMode}
           hasSelectedTask={Boolean(taskDetails)}
-          onSubmit={taskDetails ? deriveTask : createTask}
+          onSubmit={taskDetails ? appendTaskMessage : createTask}
         />
       </section>
     </main>

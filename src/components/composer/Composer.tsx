@@ -44,10 +44,8 @@ export function Composer({
   const projectReady = !!selectedProjectId;
   const submitDisabled = busy || !projectReady || !promptReady;
 
-  const placeholder = hasSelectedTask
-    ? "基于当前任务继续说明..."
-    : "输入新任务指令...";
-  const submitLabel = hasSelectedTask ? "基于此任务继续" : "创建新任务";
+  const placeholder = hasSelectedTask ? "追加当前任务说明..." : "输入新任务指令...";
+  const submitLabel = hasSelectedTask ? "追加到当前任务" : "创建新任务";
 
   return (
     <form className="composer" onSubmit={onSubmit}>

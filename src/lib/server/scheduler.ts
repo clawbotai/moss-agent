@@ -13,7 +13,7 @@ import {
 import { buildContextPackage, saveContextSnapshot } from "@/lib/server/context";
 import { nowIso } from "@/lib/server/time";
 import { buildStagePrompt, buildWorkflow } from "@/lib/server/workflows";
-import type { LogLevel, TaskLog, TaskStage } from "@/lib/types";
+import type { LogLevel, StageStatus, TaskLog, TaskStage } from "@/lib/types";
 import type { AgentRunResult } from "@/lib/agents/types";
 import { getAgent } from "@/lib/agents/registry";
 
@@ -22,6 +22,12 @@ const STUCK_TIMEOUT_MS = Number(process.env.MOSS_STUCK_TIMEOUT_MS) || 120000;
 const MAX_LOG_LENGTH = 4000;
 const MAX_SUMMARY_LENGTH = 8000;
 const MAX_STAGE_SUMMARY_LENGTH = 2000;
+const TERMINAL_STAGE_STATUSES = new Set<StageStatus>([
+  "completed",
+  "failed",
+  "cancelled",
+  "skipped",
+]);
 
 type TaskEvent =
   | { type: "log"; taskId: string; log: TaskLog }
@@ -94,6 +100,45 @@ class TaskScheduler {
     this.emitTask(taskId);
   }
 
+  continueAfterMessage(taskId: string) {
+    const task = getTask(taskId);
+    if (!task) throw new Error("任务不存在");
+
+    if (this.runningTasks.has(taskId) || ["queued", "running", "stuck", "waiting"].includes(task.status)) {
+      this.log(taskId, "info", "已收到追加说明，当前任务执行中，后续阶段会带入该补充。");
+      this.emitTask(taskId);
+      return;
+    }
+
+    // 乐观锁：再次检查任务状态，防止并发创建阶段
+    const currentTask = getTask(taskId);
+    if (!currentTask || currentTask.status !== task.status) {
+      this.log(taskId, "info", "任务状态已变更，跳过重复创建阶段。");
+      this.emitTask(taskId);
+      return;
+    }
+
+    const existingStages = listStages(taskId);
+    const nextOrderIndex = existingStages.reduce(
+      (max, stage) => Math.max(max, stage.orderIndex),
+      -1,
+    ) + 1;
+    const continuationStages = buildWorkflow(task).map((stage, index) => ({
+      ...stage,
+      name: `追加任务：${stage.name}`,
+      orderIndex: nextOrderIndex + index,
+    }));
+
+    createStages(taskId, continuationStages);
+    updateTaskStatus(taskId, "queued", {
+      currentStage: "等待追加任务执行",
+      errorMessage: null,
+      completedAt: null,
+    });
+    this.log(taskId, "info", "已将追加说明加入当前任务，并创建后续执行阶段。");
+    this.enqueue(taskId);
+  }
+
   private async runTask(taskId: string) {
     if (this.runningTasks.has(taskId)) return;
 
@@ -130,6 +175,12 @@ class TaskScheduler {
       const summaries: string[] = [];
       for (const stage of stages) {
         if (controller.signal.aborted) throw new Error("任务已取消");
+        if (TERMINAL_STAGE_STATUSES.has(stage.status)) {
+          if (stage.outputSummary) {
+            summaries.push(`${stage.name}：${stage.outputSummary.slice(0, MAX_STAGE_SUMMARY_LENGTH)}`);
+          }
+          continue;
+        }
         await this.runStage(taskId, project.path, stage, summaries, controller);
       }
 

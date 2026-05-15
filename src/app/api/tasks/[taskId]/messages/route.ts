@@ -28,12 +28,12 @@ export async function POST(request: Request, context: RouteContext) {
       content: input.content,
       includeInContext: input.includeInContext,
     });
-    const task = getTaskWithRelations(taskId);
     try {
-      getScheduler().notifyTaskUpdated(taskId);
+      getScheduler().continueAfterMessage(taskId);
     } catch (notifyError) {
-      console.warn("消息广播失败，前端将通过响应刷新", notifyError);
+      console.warn("追加任务调度失败，前端将通过响应刷新", notifyError);
     }
+    const task = getTaskWithRelations(taskId);
     return jsonOk({ message, task }, { status: 201 });
   } catch (error) {
     return jsonError(error);
