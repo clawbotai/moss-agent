@@ -1,5 +1,6 @@
 import { createTaskMessage, getTaskWithRelations, listTaskMessages } from "@/lib/server/db";
 import { jsonError, jsonOk } from "@/lib/server/http";
+import { getScheduler } from "@/lib/server/scheduler";
 import { createTaskMessageSchema } from "@/lib/server/validation";
 
 export const runtime = "nodejs";
@@ -27,7 +28,13 @@ export async function POST(request: Request, context: RouteContext) {
       content: input.content,
       includeInContext: input.includeInContext,
     });
-    return jsonOk({ message, task: getTaskWithRelations(taskId) }, { status: 201 });
+    const task = getTaskWithRelations(taskId);
+    try {
+      getScheduler().notifyTaskUpdated(taskId);
+    } catch (notifyError) {
+      console.warn("消息广播失败，前端将通过响应刷新", notifyError);
+    }
+    return jsonOk({ message, task }, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

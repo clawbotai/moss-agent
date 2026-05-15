@@ -510,6 +510,10 @@ export function createTaskMessage(input: {
       message.createdAt,
     );
 
+  getDb()
+    .prepare("UPDATE tasks SET updatedAt = ? WHERE id = ?")
+    .run(now, input.taskId);
+
   return message;
 }
 

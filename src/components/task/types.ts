@@ -59,5 +59,3 @@ export type ConversationTurn = {
   collaboration: CollaborationEntry[];
   answers: AnswerEntry[];
 };
-
-export const VALID_STAGE_STATUSES = new Set(["queued", "running", "completed", "failed", "waiting", "skipped", "cancelled"]);

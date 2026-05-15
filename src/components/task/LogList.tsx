@@ -1,3 +1,5 @@
+"use client";
+
 import type { TaskLog } from "@/lib/types";
 import { deriveLogKind, deriveLogLabel } from "./utils";
 

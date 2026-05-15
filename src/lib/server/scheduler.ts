@@ -90,6 +90,10 @@ class TaskScheduler {
     this.emitTask(taskId);
   }
 
+  notifyTaskUpdated(taskId: string) {
+    this.emitTask(taskId);
+  }
+
   private async runTask(taskId: string) {
     if (this.runningTasks.has(taskId)) return;
 

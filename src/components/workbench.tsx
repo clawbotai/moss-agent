@@ -80,7 +80,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [budget, setBudget] = useState<BudgetLevel>("standard");
   const [permission, setPermission] = useState<PermissionLevel>("workspaceWrite");
   const [memoryMode, setMemoryMode] = useState<MemoryMode>("taskSummary");
-  const [includePromptInContext, setIncludePromptInContext] = useState(false);
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -109,6 +108,13 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   useEffect(() => {
     void refresh();
   }, []);
+
+  // 派生任务可能属于不同项目，自动同步侧边栏选中的项目
+  useEffect(() => {
+    if (taskDetails?.projectId) {
+      setSelectedProjectId(taskDetails.projectId);
+    }
+  }, [taskDetails?.projectId]);
 
   async function refresh() {
     const [projectsResponse, tasksResponse, diagnosticsResponse] = await Promise.all([
@@ -187,38 +193,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     }
   }
 
-  async function appendTaskMessage(event?: FormEvent) {
+  async function deriveTask(event?: FormEvent) {
     event?.preventDefault();
-    if (!selectedTaskId || !prompt.trim()) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/tasks/${selectedTaskId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: prompt, includeInContext: includePromptInContext }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "发送消息失败");
-      setPrompt("");
-      setIncludePromptInContext(false);
-      if (data.task) {
-        setTaskDetails(data.task);
-        setTimeout(() => {
-          contentRef.current?.scrollTo({
-            top: contentRef.current.scrollHeight,
-            behavior: "smooth",
-          });
-        }, 0);
-      }
-    } catch (innerError) {
-      setError(innerError instanceof Error ? innerError.message : "发送消息失败");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deriveTask() {
     if (!selectedTaskId || !prompt.trim()) return;
     setBusy(true);
     setError("");
@@ -252,15 +228,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setSelectedTaskId("");
     setTaskDetails(null);
     setPrompt("");
-    setIncludePromptInContext(false);
     setError("");
-  }
-
-  async function createNewTaskFromComposer() {
-    setSelectedTaskId("");
-    setTaskDetails(null);
-    setIncludePromptInContext(false);
-    await createTask();
   }
 
   function selectProject(projectId: string) {
@@ -439,7 +407,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           budget={budget}
           permission={permission}
           memoryMode={memoryMode}
-          includePromptInContext={includePromptInContext}
           busy={busy}
           selectedProjectId={selectedProjectId}
           error={error}
@@ -448,11 +415,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           onBudgetChange={setBudget}
           onPermissionChange={setPermission}
           onMemoryModeChange={setMemoryMode}
-          onIncludePromptInContextChange={setIncludePromptInContext}
           hasSelectedTask={Boolean(taskDetails)}
-          onSubmit={taskDetails ? appendTaskMessage : createTask}
-          onCreateTask={() => { void createNewTaskFromComposer(); }}
-          onDeriveTask={deriveTask}
+          onSubmit={taskDetails ? deriveTask : createTask}
         />
       </section>
     </main>
