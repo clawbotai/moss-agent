@@ -8,6 +8,7 @@ import {
   ChevronDown,
   FilePlus2,
   Folder,
+  FolderOpen,
   FolderPlus,
   GitBranch,
   MessageSquareText,
@@ -359,12 +360,28 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
                   }}
                 >
                   <label>项目目录</label>
-                  <input
-                    value={projectPath}
-                    onChange={(e) => setProjectPath(e.target.value)}
-                    placeholder="/Users/name/project"
-                    autoFocus
-                  />
+                  <div className="directoryPicker">
+                    <div className="directoryPickerInput">
+                      <input
+                        value={projectPath}
+                        onChange={(e) => setProjectPath(e.target.value)}
+                        placeholder="/Users/name/project"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="browseButton"
+                      onClick={async () => {
+                        const res = await fetch("/api/fs/pick-folder", { method: "POST" });
+                        const data = (await res.json()) as { path: string | null };
+                        if (data.path) setProjectPath(data.path);
+                      }}
+                    >
+                      <FolderOpen size={14} />
+                      浏览
+                    </button>
+                  </div>
                   <input
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
