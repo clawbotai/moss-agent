@@ -7,7 +7,10 @@ const MAX_RETRIES = 5;
 const BASE_DELAY = 1000;
 const MAX_LOGS = 300;
 
-export function useTaskEvents(selectedTaskId: string | null) {
+export function useTaskEvents(
+  selectedTaskId: string | null,
+  onTaskUpdate?: (task: TaskWithRelations) => void
+) {
   const [taskDetails, setTaskDetails] = useState<TaskWithRelations | null>(null);
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export function useTaskEvents(selectedTaskId: string | null) {
         const data = JSON.parse((event as MessageEvent).data) as { task: TaskWithRelations | null };
         if (data.task) {
           setTaskDetails(data.task);
+          onTaskUpdate?.(data.task);
         }
       });
 

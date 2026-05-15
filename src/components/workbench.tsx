@@ -80,7 +80,15 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const { taskDetails, setTaskDetails } = useTaskEvents(selectedTaskId || null);
+  const { taskDetails, setTaskDetails } = useTaskEvents(selectedTaskId || null, (updatedTask) => {
+    setTasks((current) =>
+      current.map((task) =>
+        task.id === updatedTask.id
+          ? { ...task, status: updatedTask.status, currentStage: updatedTask.currentStage }
+          : task
+      )
+    );
+  });
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || null;
 
