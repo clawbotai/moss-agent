@@ -8,11 +8,15 @@ import type {
   CreateProjectInput,
   CreateTaskInput,
   LogLevel,
+  MemoryMode,
   PermissionLevel,
   Project,
   StageStatus,
   Task,
+  TaskContextSnapshot,
   TaskLog,
+  TaskMessage,
+  TaskMessageRole,
   TaskMode,
   TaskStage,
   TaskStatus,
@@ -23,6 +27,8 @@ import { nowIso, shortTitle } from "@/lib/server/time";
 type DbTaskRow = Omit<Task, "targetAgent"> & { targetAgent: AgentId | null };
 type DbStageRow = TaskStage;
 type DbLogRow = Omit<TaskLog, "payload"> & { payloadJson: string | null };
+type DbMessageRow = Omit<TaskMessage, "includeInContext"> & { includeInContext: number };
+type DbContextSnapshotRow = TaskContextSnapshot;
 
 let db: Database.Database | null = null;
 
@@ -66,12 +72,15 @@ function migrate(database: Database.Database) {
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       projectId TEXT NOT NULL,
+      parentTaskId TEXT,
       title TEXT NOT NULL,
       prompt TEXT NOT NULL,
       mode TEXT NOT NULL,
       targetAgent TEXT,
       budget TEXT NOT NULL,
       permission TEXT NOT NULL,
+      memoryMode TEXT NOT NULL DEFAULT 'taskSummary',
+      contextPolicy TEXT NOT NULL DEFAULT 'taskSummary',
       status TEXT NOT NULL,
       currentStage TEXT,
       summary TEXT,
@@ -80,7 +89,8 @@ function migrate(database: Database.Database) {
       updatedAt TEXT NOT NULL,
       startedAt TEXT,
       completedAt TEXT,
-      FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
+      FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY(parentTaskId) REFERENCES tasks(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS stages (
@@ -111,10 +121,56 @@ function migrate(database: Database.Database) {
       FOREIGN KEY(stageId) REFERENCES stages(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS task_messages (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      includeInContext INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS task_context_snapshots (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      stageId TEXT,
+      policy TEXT NOT NULL,
+      memoryMode TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tokenEstimate INTEGER NOT NULL,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY(stageId) REFERENCES stages(id) ON DELETE SET NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(projectId, status, createdAt);
     CREATE INDEX IF NOT EXISTS idx_stages_task_order ON stages(taskId, orderIndex);
     CREATE INDEX IF NOT EXISTS idx_logs_task_created ON logs(taskId, createdAt, id);
+    CREATE INDEX IF NOT EXISTS idx_task_messages_task_created ON task_messages(taskId, createdAt);
+    CREATE INDEX IF NOT EXISTS idx_context_snapshots_task_created ON task_context_snapshots(taskId, createdAt);
   `);
+
+  addColumnIfMissing(database, "tasks", "parentTaskId", "TEXT");
+  addColumnIfMissing(database, "tasks", "memoryMode", "TEXT NOT NULL DEFAULT 'taskSummary'");
+  addColumnIfMissing(database, "tasks", "contextPolicy", "TEXT NOT NULL DEFAULT 'taskSummary'");
+}
+
+const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function addColumnIfMissing(
+  database: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+) {
+  if (!SAFE_IDENTIFIER.test(table) || !SAFE_IDENTIFIER.test(column)) {
+    throw new Error(`无效的表名或列名: ${table}.${column}`);
+  }
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((item) => item.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 export function createProject(input: CreateProjectInput): Project {
@@ -189,12 +245,15 @@ export function createTask(input: CreateTaskInput): Task {
   const task: Task = {
     id: randomUUID(),
     projectId: input.projectId,
+    parentTaskId: input.parentTaskId || null,
     title: shortTitle(input.prompt),
     prompt: input.prompt.trim(),
     mode: input.mode,
     targetAgent: input.targetAgent || null,
     budget: input.budget,
     permission: input.permission,
+    memoryMode: input.memoryMode || "taskSummary",
+    contextPolicy: input.contextPolicy || "taskSummary",
     status: "queued",
     currentStage: null,
     summary: null,
@@ -208,20 +267,24 @@ export function createTask(input: CreateTaskInput): Task {
   getDb()
     .prepare(
       `INSERT INTO tasks (
-        id, projectId, title, prompt, mode, targetAgent, budget, permission,
+        id, projectId, parentTaskId, title, prompt, mode, targetAgent, budget, permission,
+        memoryMode, contextPolicy,
         status, currentStage, summary, errorMessage, createdAt, updatedAt,
         startedAt, completedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       task.id,
       task.projectId,
+      task.parentTaskId,
       task.title,
       task.prompt,
       task.mode,
       task.targetAgent,
       task.budget,
       task.permission,
+      task.memoryMode,
+      task.contextPolicy,
       task.status,
       task.currentStage,
       task.summary,
@@ -262,6 +325,8 @@ export function getTaskWithRelations(taskId: string): TaskWithRelations | null {
     project: getProject(task.projectId),
     stages: listStages(taskId),
     logs: listLogs(taskId, 300),
+    messages: listTaskMessages(taskId),
+    contextSnapshots: listContextSnapshots(taskId, 12),
   };
 }
 
@@ -410,6 +475,98 @@ export function appendLog(
     payload: options.payload ?? null,
     createdAt: nowIso(),
   } satisfies TaskLog;
+}
+
+export function createTaskMessage(input: {
+  taskId: string;
+  role: TaskMessageRole;
+  content: string;
+  includeInContext?: boolean;
+}): TaskMessage {
+  const task = getTask(input.taskId);
+  if (!task) throw new Error("任务不存在");
+  const now = nowIso();
+  const message: TaskMessage = {
+    id: randomUUID(),
+    taskId: input.taskId,
+    role: input.role,
+    content: input.content.trim(),
+    includeInContext: Boolean(input.includeInContext),
+    createdAt: now,
+  };
+
+  getDb()
+    .prepare(
+      `INSERT INTO task_messages (
+        id, taskId, role, content, includeInContext, createdAt
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      message.id,
+      message.taskId,
+      message.role,
+      message.content,
+      message.includeInContext ? 1 : 0,
+      message.createdAt,
+    );
+
+  return message;
+}
+
+export function listTaskMessages(taskId: string, limit = 100): TaskMessage[] {
+  const rows = getDb()
+    .prepare("SELECT * FROM task_messages WHERE taskId = ? ORDER BY createdAt ASC LIMIT ?")
+    .all(taskId, limit) as DbMessageRow[];
+
+  return rows.map((row) => ({
+    ...row,
+    includeInContext: Boolean(row.includeInContext),
+  }));
+}
+
+export function createContextSnapshot(input: {
+  taskId: string;
+  stageId?: string | null;
+  policy: string;
+  memoryMode: MemoryMode;
+  content: string;
+  tokenEstimate: number;
+}): TaskContextSnapshot {
+  const snapshot: TaskContextSnapshot = {
+    id: randomUUID(),
+    taskId: input.taskId,
+    stageId: input.stageId || null,
+    policy: input.policy,
+    memoryMode: input.memoryMode,
+    content: input.content,
+    tokenEstimate: input.tokenEstimate,
+    createdAt: nowIso(),
+  };
+
+  getDb()
+    .prepare(
+      `INSERT INTO task_context_snapshots (
+        id, taskId, stageId, policy, memoryMode, content, tokenEstimate, createdAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      snapshot.id,
+      snapshot.taskId,
+      snapshot.stageId,
+      snapshot.policy,
+      snapshot.memoryMode,
+      snapshot.content,
+      snapshot.tokenEstimate,
+      snapshot.createdAt,
+    );
+
+  return snapshot;
+}
+
+export function listContextSnapshots(taskId: string, limit = 20): TaskContextSnapshot[] {
+  return getDb()
+    .prepare("SELECT * FROM task_context_snapshots WHERE taskId = ? ORDER BY createdAt DESC LIMIT ?")
+    .all(taskId, limit) as DbContextSnapshotRow[];
 }
 
 export function listLogs(taskId: string, limit = 200): TaskLog[] {

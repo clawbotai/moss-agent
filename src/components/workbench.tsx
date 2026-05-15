@@ -5,6 +5,7 @@ import {
   Bot,
   ClipboardCheck,
   Bug,
+  FilePlus2,
   GitBranch,
   MessageSquareText,
   Search,
@@ -15,6 +16,7 @@ import type { FormEvent } from "react";
 import type {
   AgentDiagnostic,
   BudgetLevel,
+  MemoryMode,
   PermissionLevel,
   Project,
   Task,
@@ -72,6 +74,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [mode, setMode] = useState<TaskMode>("collaborative");
   const [budget, setBudget] = useState<BudgetLevel>("standard");
   const [permission, setPermission] = useState<PermissionLevel>("workspaceWrite");
+  const [memoryMode, setMemoryMode] = useState<MemoryMode>("taskSummary");
+  const [includePromptInContext, setIncludePromptInContext] = useState(false);
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -149,6 +153,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           targetAgent: mode === "codexOnly" ? "codex" : mode === "claudeOnly" ? "claude" : null,
           budget,
           permission,
+          memoryMode,
+          contextPolicy: memoryMode,
         }),
       });
       const data = await response.json();
@@ -161,6 +167,81 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     } finally {
       setBusy(false);
     }
+  }
+
+  async function appendTaskMessage(event?: FormEvent) {
+    event?.preventDefault();
+    if (!selectedTaskId || !prompt.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/tasks/${selectedTaskId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: prompt, includeInContext: includePromptInContext }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "发送消息失败");
+      setPrompt("");
+      setIncludePromptInContext(false);
+      if (data.task) setTaskDetails(data.task);
+    } catch (innerError) {
+      setError(innerError instanceof Error ? innerError.message : "发送消息失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deriveTask() {
+    if (!selectedTaskId || !prompt.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/tasks/${selectedTaskId}/continue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "derive",
+          prompt,
+          mode,
+          targetAgent: mode === "codexOnly" ? "codex" : mode === "claudeOnly" ? "claude" : null,
+          budget,
+          permission,
+          includeMessages: true,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "创建派生任务失败");
+      setPrompt("");
+      setSelectedTaskId(data.task.id);
+      await refresh();
+    } catch (innerError) {
+      setError(innerError instanceof Error ? innerError.message : "创建派生任务失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startNewTask() {
+    setSelectedTaskId("");
+    setTaskDetails(null);
+    setPrompt("");
+    setIncludePromptInContext(false);
+    setError("");
+  }
+
+  async function createNewTaskFromComposer() {
+    setSelectedTaskId("");
+    setTaskDetails(null);
+    setIncludePromptInContext(false);
+    await createTask();
+  }
+
+  function selectProject(projectId: string) {
+    setSelectedProjectId(projectId);
+    setSelectedTaskId("");
+    setTaskDetails(null);
+    setError("");
   }
 
   async function taskAction(action: "cancel" | "retry") {
@@ -201,7 +282,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
         busy={busy}
         projectPath={projectPath}
         projectName={projectName}
-        onSelectProject={setSelectedProjectId}
+        onSelectProject={selectProject}
         onSelectTask={setSelectedTaskId}
         onFilterChange={setFilter}
         onProjectPathChange={setProjectPath}
@@ -216,6 +297,10 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
             <span>{selectedProject?.name || "未选择项目"}</span>
           </div>
           <div className="topStatus">
+            <button className="newTaskButton" type="button" onClick={startNewTask}>
+              <FilePlus2 size={15} />
+              新开任务
+            </button>
             <HealthPill label="Codex" ok={Boolean(codex?.available)} text={codex?.message || "检测中"} />
             <HealthPill
               label="Claude"
@@ -232,35 +317,37 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           </div>
         </header>
 
-        <div className="content">
-          <section className="heroPanel">
-            <AnimatedGradient />
-            <div className="appIcon">
-              <Bot size={34} />
-            </div>
-            <h1>协作调度台</h1>
-            <p>选择项目、输入任务，调度 Claude Code 与 Codex 按阶段协作。</p>
+        <div className={taskDetails ? "content taskContent" : "content"}>
+          {!taskDetails && (
+            <section className="heroPanel">
+              <AnimatedGradient />
+              <div className="appIcon">
+                <Bot size={34} />
+              </div>
+              <h1>协作调度台</h1>
+              <p>选择项目、输入任务，调度 Claude Code 与 Codex 按阶段协作。</p>
 
-            <div className="quickGrid">
-              {quickStarts.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.title}
-                    className="quickCard"
-                    onClick={() => setPrompt(item.prompt)}
-                    type="button"
-                  >
-                    <span>
-                      <Icon size={20} />
-                    </span>
-                    <strong>{item.title}</strong>
-                    <small>{item.text}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+              <div className="quickGrid">
+                {quickStarts.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.title}
+                      className="quickCard"
+                      onClick={() => setPrompt(item.prompt)}
+                      type="button"
+                    >
+                      <span>
+                        <Icon size={20} />
+                      </span>
+                      <strong>{item.title}</strong>
+                      <small>{item.text}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <TaskDetail
             task={taskDetails}
@@ -276,6 +363,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           mode={mode}
           budget={budget}
           permission={permission}
+          memoryMode={memoryMode}
+          includePromptInContext={includePromptInContext}
           busy={busy}
           selectedProjectId={selectedProjectId}
           error={error}
@@ -283,7 +372,12 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           onModeChange={setMode}
           onBudgetChange={setBudget}
           onPermissionChange={setPermission}
-          onSubmit={createTask}
+          onMemoryModeChange={setMemoryMode}
+          onIncludePromptInContextChange={setIncludePromptInContext}
+          hasSelectedTask={Boolean(taskDetails)}
+          onSubmit={taskDetails ? appendTaskMessage : createTask}
+          onCreateTask={() => { void createNewTaskFromComposer(); }}
+          onDeriveTask={deriveTask}
         />
       </section>
     </main>

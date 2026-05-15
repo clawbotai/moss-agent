@@ -54,14 +54,19 @@ function stage(
   };
 }
 
-export function buildStagePrompt(task: Task, stage: TaskStage, previousSummaries: string[]) {
+export function buildStagePrompt(
+  task: Task,
+  stage: TaskStage,
+  previousSummaries: string[],
+  contextPackage: string,
+) {
   const context = previousSummaries.length
     ? `已有阶段摘要：\n${previousSummaries.map((item, index) => `${index + 1}. ${item}`).join("\n")}`
     : "当前没有已有阶段摘要。";
 
   const base = [
     `任务：${task.title}`,
-    `用户原始指令：\n${task.prompt}`,
+    contextPackage,
     context,
     "",
   ].join("\n");

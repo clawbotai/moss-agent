@@ -1,0 +1,34 @@
+import { createTaskMessage, getTaskWithRelations, listTaskMessages } from "@/lib/server/db";
+import { jsonError, jsonOk } from "@/lib/server/http";
+import { createTaskMessageSchema } from "@/lib/server/validation";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type RouteContext = { params: Promise<{ taskId: string }> };
+
+export async function GET(_request: Request, context: RouteContext) {
+  try {
+    const { taskId } = await context.params;
+    const messages = listTaskMessages(taskId);
+    return jsonOk({ messages });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
+
+export async function POST(request: Request, context: RouteContext) {
+  try {
+    const { taskId } = await context.params;
+    const input = createTaskMessageSchema.parse(await request.json());
+    const message = createTaskMessage({
+      taskId,
+      role: "user",
+      content: input.content,
+      includeInContext: input.includeInContext,
+    });
+    return jsonOk({ message, task: getTaskWithRelations(taskId) }, { status: 201 });
+  } catch (error) {
+    return jsonError(error);
+  }
+}

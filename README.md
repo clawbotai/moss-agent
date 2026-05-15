@@ -43,11 +43,12 @@ MOSS_CLAUDE_BIN=/opt/homebrew/bin/claude
 - `GET /api/projects`：项目列表。
 - `POST /api/projects`：注册本机项目目录。
 - `GET /api/tasks`：任务列表。
-- `POST /api/tasks`：创建任务并入队。
+- `POST /api/tasks`：显式创建新任务并入队。
 - `GET /api/tasks/:taskId`：任务详情。
 - `GET /api/tasks/:taskId/events`：任务 SSE 实时事件。
+- `POST /api/tasks/:taskId/messages`：在当前任务下追加补充消息，不创建新任务。
 - `POST /api/tasks/:taskId/cancel`：取消任务。
-- `POST /api/tasks/:taskId/continue`：卡住时继续等待。
+- `POST /api/tasks/:taskId/continue`：卡住时继续等待，或基于当前任务摘要创建派生任务。
 - `POST /api/tasks/:taskId/retry`：重试任务。
 - `POST /api/tasks/:taskId/switch-agent`：切换到 Claude 或 Codex 重新入队。
 - `GET /api/agents/diagnostics`：agent 和包管理器诊断。

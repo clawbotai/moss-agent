@@ -10,6 +10,7 @@ import {
   updateStage,
   updateTaskStatus,
 } from "@/lib/server/db";
+import { buildContextPackage, saveContextSnapshot } from "@/lib/server/context";
 import { nowIso } from "@/lib/server/time";
 import { buildStagePrompt, buildWorkflow } from "@/lib/server/workflows";
 import type { LogLevel, TaskLog, TaskStage } from "@/lib/types";
@@ -165,8 +166,19 @@ class TaskScheduler {
     if (!task) throw new Error("任务不存在");
 
     const startedAt = nowIso();
-    const prompt = buildStagePrompt(task, stage, previousSummaries);
-    updateStage(stage.id, { status: "running", startedAt, inputSummary: prompt.slice(0, 1200) });
+    const contextPackage = buildContextPackage(taskId, { stageId: stage.id });
+    saveContextSnapshot(taskId, stage.id, contextPackage);
+    const prompt = buildStagePrompt(task, stage, previousSummaries, contextPackage.content);
+    updateStage(stage.id, {
+      status: "running",
+      startedAt,
+      inputSummary: [
+        `上下文策略：${contextPackage.policy}`,
+        `记忆模式：${contextPackage.memoryMode}`,
+        `预估 token：${contextPackage.tokenEstimate}`,
+        prompt.slice(0, 900),
+      ].join("\n"),
+    });
     updateTaskStatus(taskId, "running", { currentStage: stage.name });
     this.log(taskId, "info", `阶段开始：${stage.name}`, { stageId: stage.id, agent: stage.agent });
     this.emitTask(taskId);

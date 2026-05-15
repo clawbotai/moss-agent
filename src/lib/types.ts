@@ -6,6 +6,10 @@ export type BudgetLevel = "low" | "standard" | "high";
 
 export type PermissionLevel = "readOnly" | "workspaceWrite" | "fullAccess";
 
+export type MemoryMode = "off" | "taskSummary" | "projectMemory";
+
+export type TaskMessageRole = "user" | "system" | "agent";
+
 export type TaskStatus =
   | "queued"
   | "running"
@@ -36,12 +40,15 @@ export interface Project {
 export interface Task {
   id: string;
   projectId: string;
+  parentTaskId: string | null;
   title: string;
   prompt: string;
   mode: TaskMode;
   targetAgent: AgentId | null;
   budget: BudgetLevel;
   permission: PermissionLevel;
+  memoryMode: MemoryMode;
+  contextPolicy: string;
   status: TaskStatus;
   currentStage: string | null;
   summary: string | null;
@@ -77,6 +84,26 @@ export interface TaskLog {
   createdAt: string;
 }
 
+export interface TaskMessage {
+  id: string;
+  taskId: string;
+  role: TaskMessageRole;
+  content: string;
+  includeInContext: boolean;
+  createdAt: string;
+}
+
+export interface TaskContextSnapshot {
+  id: string;
+  taskId: string;
+  stageId: string | null;
+  policy: string;
+  memoryMode: MemoryMode;
+  content: string;
+  tokenEstimate: number;
+  createdAt: string;
+}
+
 export interface AgentDiagnostic {
   id: AgentId;
   label: string;
@@ -90,15 +117,20 @@ export interface TaskWithRelations extends Task {
   project: Project | null;
   stages: TaskStage[];
   logs: TaskLog[];
+  messages: TaskMessage[];
+  contextSnapshots: TaskContextSnapshot[];
 }
 
 export interface CreateTaskInput {
   projectId: string;
+  parentTaskId?: string | null;
   prompt: string;
   mode: TaskMode;
   targetAgent?: AgentId | null;
   budget: BudgetLevel;
   permission: PermissionLevel;
+  memoryMode?: MemoryMode;
+  contextPolicy?: string;
 }
 
 export interface CreateProjectInput {
