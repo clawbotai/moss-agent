@@ -899,8 +899,6 @@ a {
   color: var(--text-secondary);
 }
 
-.tlStageText pre,
-.inlineSummary pre,
 .tlDebugBlock pre {
   color: var(--text-secondary);
   font-family: var(--font-mono);
@@ -982,10 +980,6 @@ a {
 }
 
 .inlineWarning,
-.inlineSummary {
-  margin: 0;
-}
-
 .inlineWarning {
   display: grid;
   gap: 6px;
@@ -999,6 +993,159 @@ a {
 .inlineWarning p {
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+/* Markdown Block */
+.markdownBlock {
+  position: relative;
+  margin-top: 8px;
+}
+
+.copyBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: all var(--transition-fast);
+  z-index: 1;
+}
+
+.markdownBlock:hover .copyBtn {
+  opacity: 1;
+}
+
+.copyBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.copyBtn:active {
+  transform: scale(0.95);
+}
+
+.markdownBody {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.markdownBody h1,
+.markdownBody h2,
+.markdownBody h3,
+.markdownBody h4,
+.markdownBody h5,
+.markdownBody h6 {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.markdownBody h1 { font-size: 20px; }
+.markdownBody h2 { font-size: 17px; }
+.markdownBody h3 { font-size: 15px; }
+
+.markdownBody p {
+  margin-bottom: 12px;
+}
+
+.markdownBody ul,
+.markdownBody ol {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+
+.markdownBody li {
+  margin-bottom: 4px;
+}
+
+.markdownBody code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+.markdownBody pre {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.markdownBody pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.markdownBody blockquote {
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 12px;
+  margin-left: 0;
+  margin-bottom: 12px;
+  color: var(--text-tertiary);
+}
+
+.markdownBody table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+
+.markdownBody th,
+.markdownBody td {
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdownBody th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+}
+
+.markdownBody a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.markdownBody a:hover {
+  text-decoration: underline;
+}
+
+.markdownBody hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 16px 0;
+}
+
+.inlineSummary .markdownBody {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.tlStageText .markdownBody {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
 }
 
 /* Action Buttons */

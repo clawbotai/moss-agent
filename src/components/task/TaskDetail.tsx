@@ -7,13 +7,16 @@ import {
   Clock3,
   CircleStop,
   Code2,
+  Copy,
   MessageSquareText,
   Play,
   RotateCcw,
   TerminalSquare,
   User,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { TaskLog, TaskStage, TaskWithRelations } from "@/lib/types";
 import { statusLabel } from "@/components/common/StatusDot";
 
@@ -193,7 +196,7 @@ function TimelineStage({
           </div>
           {showBody && (
             <div className="tlStageText">
-              {displayText ? <pre>{displayText}</pre> : <p>{stageFallbackText(stage)}</p>}
+              {displayText ? <MarkdownBlock content={displayText} /> : <p>{stageFallbackText(stage)}</p>}
             </div>
           )}
           {(stage.inputSummary || logs.length > 0) && (
@@ -254,6 +257,29 @@ function TimelineError({
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text);
+  }, [text]);
+
+  return (
+    <button className="copyBtn" onClick={handleCopy} title="复制 Markdown" type="button">
+      <Copy size={14} />
+    </button>
+  );
+}
+
+function MarkdownBlock({ content, className = "" }: { content: string; className?: string }) {
+  return (
+    <div className={`markdownBlock ${className}`}>
+      <CopyButton text={content} />
+      <div className="markdownBody">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      </div>
+    </div>
+  );
+}
+
 function TimelineSummary({
   summary,
 }: {
@@ -270,9 +296,7 @@ function TimelineSummary({
             <strong>交付摘要</strong>
             <span className="tlStatus tlStatus-completed">READY</span>
           </div>
-          <div className="inlineSummary">
-            <pre>{summary}</pre>
-          </div>
+          <MarkdownBlock content={summary} className="inlineSummary" />
         </div>
       </div>
     </div>
