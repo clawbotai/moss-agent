@@ -479,6 +479,229 @@ a {
   color: var(--text-primary);
 }
 
+/* Popover */
+.popover {
+  position: absolute;
+  top: 100%;
+  z-index: 100;
+}
+
+.popoverLeft {
+  left: 0;
+  margin-top: 4px;
+}
+
+.popoverRight {
+  right: 0;
+  margin-top: 4px;
+}
+
+.popoverContent {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  padding: 4px;
+}
+
+/* Topbar Left */
+.topbarLeft {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Project Badge Button */
+.projectBadge {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  appearance: none;
+  font-family: inherit;
+}
+
+.projectBadge:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.projectBadge svg:last-child {
+  margin-left: 2px;
+  opacity: 0.5;
+}
+
+/* Add Project */
+.addProjectWrap {
+  position: relative;
+}
+
+.newProjectButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.newProjectButton:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.inlineProjectForm {
+  border: none;
+  background: transparent;
+  padding: 8px;
+  min-width: 280px;
+}
+
+/* Directory Picker */
+.directoryPicker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.directoryPickerInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.directoryPickerInput input {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  padding-right: 64px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color var(--transition-fast);
+}
+
+.directoryPickerInput input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.directoryPickerInput input::placeholder {
+  color: var(--text-disabled);
+}
+
+.browseButton {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.browseButton:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.clearButton {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.clearButton:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+/* Project Dropdown */
+.projectDropdown {
+  min-width: 260px;
+}
+
+.projectDropdownTitle {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.projectDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.projectDropdownItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.projectDropdownItem.active {
+  background: var(--accent-glow);
+  color: var(--text-primary);
+}
+
+.projectDropdownItem small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectDropdownEmpty {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
 /* Content Area */
 .content {
   display: flex;

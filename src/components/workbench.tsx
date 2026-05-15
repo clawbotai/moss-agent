@@ -5,13 +5,16 @@ import {
   Bot,
   ClipboardCheck,
   Bug,
+  ChevronDown,
   FilePlus2,
+  Folder,
+  FolderPlus,
   GitBranch,
   MessageSquareText,
   Search,
   Settings,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   AgentDiagnostic,
@@ -29,6 +32,7 @@ import { ProjectSidebar } from "@/components/sidebar/ProjectSidebar";
 import { TaskDetail } from "@/components/task/TaskDetail";
 import { Composer } from "@/components/composer/Composer";
 import { useTaskEvents } from "@/hooks/useTaskEvents";
+import { Popover } from "@/components/common/Popover";
 
 type DiagnosticResponse = {
   agents: AgentDiagnostic[];
@@ -79,6 +83,10 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const projectBadgeRef = useRef<HTMLButtonElement>(null);
+  const addProjectBtnRef = useRef<HTMLButtonElement>(null);
 
   const { taskDetails, setTaskDetails } = useTaskEvents(selectedTaskId || null, (updatedTask) => {
     setTasks((current) =>
@@ -282,29 +290,93 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   return (
     <main className="shell">
       <ProjectSidebar
-        projects={projects}
         tasks={tasks}
         selectedProjectId={selectedProjectId}
         selectedTaskId={selectedTaskId}
         filter={filter}
-        busy={busy}
-        projectPath={projectPath}
-        projectName={projectName}
-        onSelectProject={selectProject}
         onSelectTask={setSelectedTaskId}
         onFilterChange={setFilter}
-        onProjectPathChange={setProjectPath}
-        onProjectNameChange={setProjectName}
-        onCreateProject={createProject}
       />
 
       <section className="workspace">
         <header className="topbar">
-          <div className="projectBadge">
-            <GitBranch size={16} />
-            <span>{selectedProject?.name || "未选择项目"}</span>
+          <div className="topbarLeft">
+            <button
+              ref={projectBadgeRef}
+              className="projectBadge"
+              type="button"
+              onClick={() => {
+                setShowProjectDropdown((v) => !v);
+                setShowAddProject(false);
+              }}
+            >
+              <GitBranch size={16} />
+              <span>{selectedProject?.name || "未选择项目"}</span>
+              <ChevronDown size={14} />
+            </button>
+            <Popover open={showProjectDropdown} onClose={() => setShowProjectDropdown(false)} wrapperClassName="popoverLeft" triggerRef={projectBadgeRef}>
+              <div className="projectDropdown">
+                <div className="projectDropdownTitle">切换项目</div>
+                {projects.map((project) => (
+                  <button
+                    key={project.id}
+                    className={project.id === selectedProjectId ? "projectDropdownItem active" : "projectDropdownItem"}
+                    type="button"
+                    onClick={() => {
+                      selectProject(project.id);
+                      setShowProjectDropdown(false);
+                    }}
+                  >
+                    <Folder size={14} />
+                    <span>{project.name}</span>
+                    <small>{project.path}</small>
+                  </button>
+                ))}
+                {projects.length === 0 && <p className="projectDropdownEmpty">暂无项目</p>}
+              </div>
+            </Popover>
           </div>
           <div className="topStatus">
+            <div className="addProjectWrap">
+              <button
+                ref={addProjectBtnRef}
+                className="newProjectButton"
+                type="button"
+                onClick={() => {
+                  setShowAddProject((v) => !v);
+                  setShowProjectDropdown(false);
+                }}
+              >
+                <FolderPlus size={15} />
+                新增项目
+              </button>
+              <Popover open={showAddProject} onClose={() => setShowAddProject(false)} wrapperClassName="popoverRight" triggerRef={addProjectBtnRef}>
+                <form
+                  className="projectForm inlineProjectForm"
+                  onSubmit={async (e) => {
+                    await createProject(e);
+                    setShowAddProject(false);
+                  }}
+                >
+                  <label>项目目录</label>
+                  <input
+                    value={projectPath}
+                    onChange={(e) => setProjectPath(e.target.value)}
+                    placeholder="/Users/name/project"
+                    autoFocus
+                  />
+                  <input
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="项目名，可选"
+                  />
+                  <button disabled={busy || !projectPath.trim()} type="submit">
+                    <Folder size={15} />
+                    添加项目
+                  </button>
+                </form>
+              </Popover>
+            </div>
             <button className="newTaskButton" type="button" onClick={startNewTask}>
               <FilePlus2 size={15} />
               新开任务

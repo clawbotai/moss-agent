@@ -1,42 +1,25 @@
 "use client";
 
-import { Folder, Search, TerminalSquare } from "lucide-react";
-import type { FormEvent } from "react";
-import type { Project, Task } from "@/lib/types";
+import { Search, TerminalSquare } from "lucide-react";
+import type { Task } from "@/lib/types";
 import { StatusDot, statusLabel } from "@/components/common/StatusDot";
 
 interface ProjectSidebarProps {
-  projects: Project[];
   tasks: Task[];
   selectedProjectId: string;
   selectedTaskId: string;
   filter: string;
-  busy: boolean;
-  projectPath: string;
-  projectName: string;
-  onSelectProject: (projectId: string) => void;
   onSelectTask: (taskId: string) => void;
   onFilterChange: (filter: string) => void;
-  onProjectPathChange: (path: string) => void;
-  onProjectNameChange: (name: string) => void;
-  onCreateProject: (event: FormEvent) => void;
 }
 
 export function ProjectSidebar({
-  projects,
   tasks,
   selectedProjectId,
   selectedTaskId,
   filter,
-  busy,
-  projectPath,
-  projectName,
-  onSelectProject,
   onSelectTask,
   onFilterChange,
-  onProjectPathChange,
-  onProjectNameChange,
-  onCreateProject,
 }: ProjectSidebarProps) {
   const filteredTasks = tasks.filter((task) => {
     const inProject = selectedProjectId ? task.projectId === selectedProjectId : true;
@@ -59,24 +42,6 @@ export function ProjectSidebar({
         </div>
       </div>
 
-      <form className="projectForm" onSubmit={onCreateProject}>
-        <label>项目目录</label>
-        <input
-          value={projectPath}
-          onChange={(event) => onProjectPathChange(event.target.value)}
-          placeholder="/Users/name/project"
-        />
-        <input
-          value={projectName}
-          onChange={(event) => onProjectNameChange(event.target.value)}
-          placeholder="项目名，可选"
-        />
-        <button disabled={busy || !projectPath.trim()} type="submit">
-          <Folder size={15} />
-          添加项目
-        </button>
-      </form>
-
       <div className="searchBox">
         <Search size={15} />
         <input
@@ -85,22 +50,6 @@ export function ProjectSidebar({
           placeholder="搜索任务..."
         />
       </div>
-
-      <section className="projectList">
-        <div className="sectionTitle">项目</div>
-        {projects.map((project) => (
-          <button
-            key={project.id}
-            className={project.id === selectedProjectId ? "projectItem active" : "projectItem"}
-            onClick={() => onSelectProject(project.id)}
-            type="button"
-          >
-            <Folder size={15} />
-            <span>{project.name}</span>
-          </button>
-        ))}
-        {projects.length === 0 && <p className="muted">先添加一个本机项目目录。</p>}
-      </section>
 
       <section className="taskList">
         <div className="sectionTitle">任务</div>
