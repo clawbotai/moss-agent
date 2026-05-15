@@ -5,6 +5,12 @@ function claudeBin() {
   return process.env.MOSS_CLAUDE_BIN || "claude";
 }
 
+function permissionMode(permission: AgentRunContext["permission"]) {
+  if (permission === "readOnly") return "plan";
+  if (permission === "fullAccess") return "auto";
+  return "acceptEdits";
+}
+
 // 清理用户输入，防止 prompt 注入
 function sanitizeUserInput(input: string): string {
   // 移除潜在的指令注入模式
@@ -50,7 +56,7 @@ export const claudeAdapter: AgentAdapter = {
   async run(context) {
     const result = await runProcess({
       command: claudeBin(),
-      args: ["-p", buildPrompt("执行", context)],
+      args: ["-p", buildPrompt("执行", context), "--permission-mode", permissionMode(context.permission)],
       cwd: context.projectPath,
       signal: context.signal,
       onStdout: (chunk) => context.onLog(chunk),
@@ -64,7 +70,7 @@ export const claudeAdapter: AgentAdapter = {
   async review(context) {
     const result = await runProcess({
       command: claudeBin(),
-      args: ["-p", buildPrompt("审查", context)],
+      args: ["-p", buildPrompt("审查", context), "--permission-mode", permissionMode(context.permission)],
       cwd: context.projectPath,
       signal: context.signal,
       onStdout: (chunk) => context.onLog(chunk),

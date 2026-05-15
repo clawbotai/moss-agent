@@ -771,6 +771,44 @@ a {
   word-break: break-word;
 }
 
+.runDigest {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.digestCard {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(255, 255, 255, 0.018);
+}
+
+.digestCard span,
+.digestCard small {
+  display: block;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.digestCard strong {
+  display: block;
+  overflow: hidden;
+  margin: 4px 0 2px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .messageList,
 .contextPackage {
   display: grid;
@@ -822,6 +860,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin-bottom: 12px;
 }
 
 .runBlock {
@@ -930,6 +969,38 @@ a {
   gap: 14px;
 }
 
+.stageTopline {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.32fr) minmax(92px, 0.32fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.stageTopline span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 30px;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.stageTopline span:last-child {
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stageTopline svg {
+  flex: 0 0 auto;
+}
+
 .stageSummaryGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -985,6 +1056,48 @@ a {
 .inlineWarning,
 .inlineSummary {
   margin: 0;
+}
+
+.inlineWarning {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  padding: 12px;
+  color: var(--warning);
+}
+
+.inlineWarning p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.logToolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--text-tertiary);
+}
+
+.logToolbar button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  transition: all var(--transition-fast);
+}
+
+.logToolbar button:hover,
+.logToolbar button.active {
+  border-color: rgba(52, 211, 153, 0.32);
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--success);
 }
 
 .inlineLogs {
@@ -1173,26 +1286,55 @@ a {
 }
 
 .logLine {
-  display: flex;
+  display: grid;
+  grid-template-columns: 62px 42px minmax(0, 1fr);
+  align-items: start;
   gap: 12px;
-  padding: 4px 0;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
   color: var(--text-secondary);
 }
 
 .logLine time {
   color: var(--text-disabled);
-  flex-shrink: 0;
   font-size: 11px;
 }
 
+.logLine small {
+  align-self: start;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .logLine span {
-  flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .logLine.error { color: var(--error); }
 .logLine.warn { color: var(--warning); }
+.logLine.event small {
+  border-color: rgba(96, 165, 250, 0.24);
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.logLine.warning small {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.logLine.error small {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: var(--error-bg);
+  color: var(--error);
+}
 
 /* Composer */
 .composer {
@@ -1494,5 +1636,15 @@ a {
 
   .stageSummaryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .runDigest,
+  .stageTopline {
+    grid-template-columns: 1fr;
+  }
+
+  .logLine {
+    grid-template-columns: 56px 38px minmax(0, 1fr);
+    gap: 8px;
   }
 }
