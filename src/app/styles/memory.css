@@ -1,122 +1,123 @@
-.memory-confirm-panel {
-  margin-top: 1rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: 8px;
+/* Memory Confirm Panel */
+.memoryConfirmPanel {
+  margin-top: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-secondary);
 }
 
-.memory-confirm-header {
+.memoryConfirmHeader {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-secondary);
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.memory-confirm-count {
+.memoryConfirmCount {
   margin-left: auto;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
-.memory-confirm-error {
+.memoryConfirmError {
   font-size: 0.75rem;
   color: var(--error);
-  margin-left: 0.5rem;
+  margin-left: 8px;
 }
 
-.memory-confirm-all-btn {
-  padding: 0.25rem 0.75rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: 4px;
+.memoryConfirmAllBtn {
+  padding: 4px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 }
 
-.memory-confirm-all-btn:hover:not(:disabled) {
+.memoryConfirmAllBtn:hover:not(:disabled) {
   background: var(--accent-primary);
   color: white;
   border-color: var(--accent-primary);
 }
 
-.memory-confirm-all-btn:disabled {
+.memoryConfirmAllBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.memory-confirm-list {
-  padding: 0.5rem;
+.memoryConfirmList {
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
-.memory-confirm-item {
-  padding: 0.75rem;
-  border-radius: 6px;
+.memoryConfirmItem {
+  padding: 12px;
+  border-radius: var(--radius-sm);
   background: var(--bg-primary);
-  border: 1px solid var(--border-secondary);
+  border: 1px solid var(--border-subtle);
 }
 
-.memory-confirm-item-header {
+.memoryConfirmItemHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 8px;
 }
 
-.memory-category-tag {
+.memoryCategoryTag {
   font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 3px;
+  padding: 2px 8px;
+  border-radius: 4px;
   background: var(--accent-primary);
   color: white;
   font-weight: 500;
 }
 
-.memory-confirm-actions {
+.memoryConfirmActions {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
 }
 
-.memory-action-btn {
+.memoryActionBtn {
   width: 24px;
   height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-secondary);
-  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   background: transparent;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 }
 
-.memory-action-confirm:hover:not(:disabled) {
+.memoryActionConfirm:hover:not(:disabled) {
   background: var(--success);
   color: white;
   border-color: var(--success);
 }
 
-.memory-action-reject:hover:not(:disabled) {
+.memoryActionReject:hover:not(:disabled) {
   background: var(--error);
   color: white;
   border-color: var(--error);
 }
 
-.memory-action-btn:disabled {
+.memoryActionBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.memory-confirm-content {
+.memoryConfirmContent {
   font-size: 0.8rem;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -124,18 +125,18 @@
   word-break: break-word;
 }
 
-.memory-confirm-tags {
+.memoryConfirmTags {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-top: 0.5rem;
+  margin-top: 8px;
 }
 
-.memory-tag {
+.memoryTag {
   font-size: 0.65rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
   background: var(--bg-secondary);
-  color: var(--text-muted);
-  border: 1px solid var(--border-secondary);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
 }

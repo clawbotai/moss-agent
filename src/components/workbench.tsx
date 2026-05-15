@@ -15,7 +15,7 @@ import {
   Search,
   Settings,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   AgentDiagnostic,
@@ -24,7 +24,9 @@ import type {
   PermissionLevel,
   Project,
   Task,
+  TaskMessage,
   TaskMode,
+  TaskStage,
   TaskWithRelations,
 } from "@/lib/types";
 import { HealthPill } from "@/components/common/HealthPill";
@@ -89,6 +91,21 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const projectBadgeRef = useRef<HTMLButtonElement>(null);
   const addProjectBtnRef = useRef<HTMLButtonElement>(null);
 
+  // 乐观更新状态：与 taskDetails 分离，避免 SSE 事件覆盖
+  const [optimisticMessages, setOptimisticMessages] = useState<TaskMessage[]>([]);
+  const [optimisticStages, setOptimisticStages] = useState<TaskStage[]>([]);
+  const pendingAbortRef = useRef<AbortController | null>(null);
+  const optimisticIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  // 组件卸载时中断进行中的请求
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      pendingAbortRef.current?.abort();
+    };
+  }, []);
+
   const { taskDetails, setTaskDetails } = useTaskEvents(selectedTaskId || null, (updatedTask) => {
     setTasks((current) =>
       current.map((task) =>
@@ -98,6 +115,17 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
       )
     );
   });
+
+  // 合并 taskDetails 与乐观数据用于渲染（乐观数据不受 SSE 影响）
+  const mergedTaskDetails = useMemo<TaskWithRelations | null>(() => {
+    if (!taskDetails) return null;
+    if (optimisticMessages.length === 0 && optimisticStages.length === 0) return taskDetails;
+    return {
+      ...taskDetails,
+      messages: [...taskDetails.messages, ...optimisticMessages],
+      stages: [...taskDetails.stages, ...optimisticStages],
+    };
+  }, [taskDetails, optimisticMessages, optimisticStages]);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || null;
 
@@ -198,19 +226,59 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     if (!selectedTaskId || !prompt.trim()) return;
     setBusy(true);
     setError("");
+    const promptText = prompt;
+    setPrompt("");
+
+    // 乐观更新：使用独立状态，不与 taskDetails 耦合，避免被 SSE 事件覆盖
+    const now = new Date().toISOString();
+    const maxOrder = taskDetails?.stages?.length
+      ? Math.max(...taskDetails.stages.map((s) => s.orderIndex))
+      : -1;
+    const optimisticId = ++optimisticIdRef.current;
+    setOptimisticMessages([{
+      id: `optimistic-msg-${optimisticId}`,
+      taskId: selectedTaskId,
+      role: "user",
+      content: promptText,
+      includeInContext: true,
+      createdAt: now,
+    }]);
+    setOptimisticStages([{
+      id: `optimistic-stage-${optimisticId}`,
+      taskId: selectedTaskId,
+      name: "追加任务中…",
+      agent: "claude",
+      role: "plan",
+      status: "running",
+      inputSummary: null,
+      outputSummary: null,
+      startedAt: now,
+      completedAt: null,
+      errorMessage: null,
+      // stages 为空时使用高哨兵值，避免与服务器分配的 orderIndex 冲突
+      orderIndex: maxOrder >= 0 ? maxOrder + 1 : 1000,
+    }]);
+
+    // 创建 AbortController 支持组件卸载时中断请求
+    const abortController = new AbortController();
+    pendingAbortRef.current = abortController;
+
     try {
       const response = await fetch(`/api/tasks/${selectedTaskId}/messages`, {
+        signal: abortController.signal,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: prompt,
-          // 追加消息默认进入上下文，确保任务执行时能获取到用户补充说明
+          content: promptText,
           includeInContext: true,
         }),
       });
       const data = (await response.json()) as { task?: TaskWithRelations; error?: string };
       if (!response.ok) throw new Error(data.error || "追加任务说明失败");
-      setPrompt("");
+      if (!mountedRef.current) return; // 组件已卸载
+      // 成功：清除乐观数据，让真实数据接管渲染
+      setOptimisticMessages([]);
+      setOptimisticStages([]);
       if (data.task) {
         const appendedTask = data.task;
         setTaskDetails(appendedTask);
@@ -219,8 +287,14 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
         await refresh();
       }
     } catch (innerError) {
+      if (abortController.signal.aborted || !mountedRef.current) return; // 组件已卸载，不做任何操作
+      // 失败：清除乐观数据、恢复用户输入
+      setOptimisticMessages([]);
+      setOptimisticStages([]);
+      setPrompt(promptText);
       setError(innerError instanceof Error ? innerError.message : "追加任务说明失败");
     } finally {
+      pendingAbortRef.current = null;
       setBusy(false);
     }
   }
@@ -230,6 +304,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setTaskDetails(null);
     setPrompt("");
     setError("");
+    setOptimisticMessages([]);
+    setOptimisticStages([]);
   }
 
   function selectProject(projectId: string) {
@@ -237,6 +313,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setSelectedTaskId("");
     setTaskDetails(null);
     setError("");
+    setOptimisticMessages([]);
+    setOptimisticStages([]);
   }
 
   return (
@@ -398,7 +476,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           )}
 
           <TaskDetail
-            task={taskDetails}
+            task={mergedTaskDetails}
           />
         </div>
 

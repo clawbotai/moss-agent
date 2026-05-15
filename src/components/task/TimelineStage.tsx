@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   Clock3,
@@ -21,9 +22,28 @@ export function TimelineStage({
   stage: TaskStage;
   logs: TaskLog[];
 }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (stage.status !== "running" || !stage.startedAt) return;
+    const startedAt = new Date(stage.startedAt).getTime();
+    let timer: ReturnType<typeof setTimeout>;
+
+    function tick() {
+      setNow(new Date());
+      const elapsed = Date.now() - startedAt;
+      // 前 2 分钟每秒更新，之后每 5 秒更新以减少性能开销
+      const delay = elapsed < 120_000 ? 1000 : 5000;
+      timer = setTimeout(tick, delay);
+    }
+
+    tick();
+    return () => clearTimeout(timer);
+  }, [stage.status, stage.startedAt]);
+
   const started = stage.startedAt ? new Date(stage.startedAt) : null;
   const completed = stage.completedAt ? new Date(stage.completedAt) : null;
-  const duration = started ? formatDuration(started, completed || new Date()) : null;
+  const duration = started ? formatDuration(started, completed || now) : null;
   const status = stage.status === "completed" ? "DONE" : statusLabel(stage.status);
   const isRunning = stage.status === "running";
   const isFailed = stage.status === "failed";

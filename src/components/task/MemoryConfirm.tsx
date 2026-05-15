@@ -101,30 +101,30 @@ export function MemoryConfirm({ projectId, taskId }: MemoryConfirmProps) {
   };
 
   return (
-    <div className="memory-confirm-panel">
-      <div className="memory-confirm-header">
+    <div className="memoryConfirmPanel">
+      <div className="memoryConfirmHeader">
         <Brain size={16} />
         <span>项目记忆提取</span>
-        <span className="memory-confirm-count">{memories.length} 条待确认</span>
-        {error && <span className="memory-confirm-error">{error}</span>}
+        <span className="memoryConfirmCount">{memories.length} 条待确认</span>
+        {error && <span className="memoryConfirmError">{error}</span>}
         <button
-          className="memory-confirm-all-btn"
+          className="memoryConfirmAllBtn"
           onClick={handleConfirmAll}
           disabled={confirming.size > 0}
         >
           全部确认
         </button>
       </div>
-      <div className="memory-confirm-list">
+      <div className="memoryConfirmList">
         {memories.map((memory) => (
-          <div key={memory.id} className="memory-confirm-item">
-            <div className="memory-confirm-item-header">
-              <span className="memory-category-tag">
+          <div key={memory.id} className="memoryConfirmItem">
+            <div className="memoryConfirmItemHeader">
+              <span className="memoryCategoryTag">
                 {categoryLabels[memory.category] || memory.category}
               </span>
-              <div className="memory-confirm-actions">
+              <div className="memoryConfirmActions">
                 <button
-                  className="memory-action-btn memory-action-confirm"
+                  className="memoryActionBtn memoryActionConfirm"
                   onClick={() => handleConfirm(memory.id)}
                   disabled={confirming.has(memory.id)}
                   title="确认"
@@ -132,7 +132,7 @@ export function MemoryConfirm({ projectId, taskId }: MemoryConfirmProps) {
                   <Check size={14} />
                 </button>
                 <button
-                  className="memory-action-btn memory-action-reject"
+                  className="memoryActionBtn memoryActionReject"
                   onClick={() => handleReject(memory.id)}
                   disabled={confirming.has(memory.id)}
                   title="删除"
@@ -141,14 +141,14 @@ export function MemoryConfirm({ projectId, taskId }: MemoryConfirmProps) {
                 </button>
               </div>
             </div>
-            <div className="memory-confirm-content">
+            <div className="memoryConfirmContent">
               {memory.content.slice(0, 200)}
               {memory.content.length > 200 ? "..." : ""}
             </div>
             {memory.tags.length > 0 && (
-              <div className="memory-confirm-tags">
+              <div className="memoryConfirmTags">
                 {memory.tags.map((tag) => (
-                  <span key={tag} className="memory-tag">
+                  <span key={tag} className="memoryTag">
                     {tag}
                   </span>
                 ))}
