@@ -6,7 +6,7 @@ export type BudgetLevel = "low" | "standard" | "high";
 
 export type PermissionLevel = "readOnly" | "workspaceWrite" | "fullAccess";
 
-export type MemoryMode = "off" | "taskSummary" | "projectMemory";
+export type MemoryMode = "off" | "taskSummary" | "projectMemory" | "auto";
 
 export type TaskMessageRole = "user" | "system" | "agent";
 
@@ -201,6 +201,15 @@ export interface ProjectMemory {
   tags: string[];
   createdAt: string;
   confirmedAt: string | null;
+}
+
+// ─── Project Settings ───────────────────────────────────
+
+export interface ProjectSettings {
+  projectId: string;
+  memoryInjectEnabled: boolean;
+  memoryExtractEnabled: boolean;
+  updatedAt: string;
 }
 
 // ─── Derive Options ─────────────────────────────────────

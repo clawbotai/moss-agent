@@ -2,7 +2,7 @@
 
 import { Loader2, Send, Sparkles } from "lucide-react";
 import type { FormEvent } from "react";
-import type { BudgetLevel, MemoryMode, PermissionLevel, TaskMode } from "@/lib/types";
+import type { BudgetLevel, PermissionLevel, TaskMode } from "@/lib/types";
 import { Select } from "@/components/common/Select";
 
 interface ComposerProps {
@@ -10,7 +10,6 @@ interface ComposerProps {
   mode: TaskMode;
   budget: BudgetLevel;
   permission: PermissionLevel;
-  memoryMode: MemoryMode;
   busy: boolean;
   selectedProjectId: string;
   hasSelectedTask: boolean;
@@ -19,7 +18,6 @@ interface ComposerProps {
   onModeChange: (mode: TaskMode) => void;
   onBudgetChange: (budget: BudgetLevel) => void;
   onPermissionChange: (permission: PermissionLevel) => void;
-  onMemoryModeChange: (memoryMode: MemoryMode) => void;
   onSubmit: (event?: FormEvent) => void;
 }
 
@@ -28,7 +26,6 @@ export function Composer({
   mode,
   budget,
   permission,
-  memoryMode,
   busy,
   selectedProjectId,
   hasSelectedTask,
@@ -37,7 +34,6 @@ export function Composer({
   onModeChange,
   onBudgetChange,
   onPermissionChange,
-  onMemoryModeChange,
   onSubmit,
 }: ComposerProps) {
   const promptReady = !!prompt.trim();
@@ -68,11 +64,6 @@ export function Composer({
           <option value="readOnly">只读</option>
           <option value="workspaceWrite">工作区写入</option>
           <option value="fullAccess">完整权限</option>
-        </Select>
-        <Select value={memoryMode} onChange={(value) => onMemoryModeChange(value as MemoryMode)}>
-          <option value="off">关闭记忆</option>
-          <option value="taskSummary">任务摘要记忆</option>
-          <option value="projectMemory">项目记忆</option>
         </Select>
       </div>
       <div className="promptRow">

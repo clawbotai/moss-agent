@@ -3,6 +3,7 @@ import {
   appendLog,
   createStages,
   getProject,
+  getProjectSettings,
   getTask,
   getTaskWithRelations,
   listStages,
@@ -218,7 +219,10 @@ class TaskScheduler {
       try {
         const completedTask = getTaskWithRelations(taskId);
         if (completedTask) {
-          extractMemoryFromTask(completedTask);
+          const settings = getProjectSettings(completedTask.projectId);
+          if (settings.memoryExtractEnabled) {
+            extractMemoryFromTask(completedTask);
+          }
         }
       } catch {
         // 记忆提取失败不应影响任务完成状态

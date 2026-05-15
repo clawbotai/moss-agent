@@ -20,7 +20,6 @@ import type { FormEvent } from "react";
 import type {
   AgentDiagnostic,
   BudgetLevel,
-  MemoryMode,
   PermissionLevel,
   Project,
   Task,
@@ -36,6 +35,7 @@ import { TaskDetail } from "@/components/task/TaskDetail";
 import { Composer } from "@/components/composer/Composer";
 import { useTaskEvents } from "@/hooks/useTaskEvents";
 import { Popover } from "@/components/common/Popover";
+import { SettingsPopover } from "@/components/settings/SettingsPopover";
 
 type DiagnosticResponse = {
   agents: AgentDiagnostic[];
@@ -81,7 +81,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [mode, setMode] = useState<TaskMode>("collaborative");
   const [budget, setBudget] = useState<BudgetLevel>("standard");
   const [permission, setPermission] = useState<PermissionLevel>("workspaceWrite");
-  const [memoryMode, setMemoryMode] = useState<MemoryMode>("taskSummary");
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -90,6 +89,8 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const contentRef = useRef<HTMLDivElement>(null);
   const projectBadgeRef = useRef<HTMLButtonElement>(null);
   const addProjectBtnRef = useRef<HTMLButtonElement>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   // 乐观更新状态：与 taskDetails 分离，避免 SSE 事件覆盖
   const [optimisticMessages, setOptimisticMessages] = useState<TaskMessage[]>([]);
@@ -205,8 +206,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           targetAgent: mode === "codexOnly" ? "codex" : mode === "claudeOnly" ? "claude" : null,
           budget,
           permission,
-          memoryMode,
-          contextPolicy: memoryMode,
         }),
       });
       const data = await response.json();
@@ -437,9 +436,22 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
               <Activity size={14} />
               {activeCount ? `${activeCount} 个任务进行中` : "就绪"}
             </div>
-            <button className="iconButton" type="button" aria-label="设置">
+            <button
+              ref={settingsBtnRef}
+              className="iconButton"
+              type="button"
+              aria-label="项目设置"
+              disabled={!selectedProjectId}
+              onClick={() => setShowSettings((v) => !v)}
+            >
               <Settings size={17} />
             </button>
+            <SettingsPopover
+              projectId={selectedProjectId}
+              open={showSettings}
+              onClose={() => setShowSettings(false)}
+              triggerRef={settingsBtnRef}
+            />
           </div>
         </header>
 
@@ -485,7 +497,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           mode={mode}
           budget={budget}
           permission={permission}
-          memoryMode={memoryMode}
           busy={busy}
           selectedProjectId={selectedProjectId}
           error={error}
@@ -493,7 +504,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           onModeChange={setMode}
           onBudgetChange={setBudget}
           onPermissionChange={setPermission}
-          onMemoryModeChange={setMemoryMode}
           hasSelectedTask={Boolean(taskDetails)}
           onSubmit={taskDetails ? appendTaskMessage : createTask}
         />

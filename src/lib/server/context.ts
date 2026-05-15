@@ -1,9 +1,14 @@
-import { createContextSnapshot, getTaskWithRelations, getTaskDeriveOptions, getParentTaskId } from "@/lib/server/db";
+import { createContextSnapshot, getTaskWithRelations, getTaskDeriveOptions, getParentTaskId, getProjectSettings } from "@/lib/server/db";
 import { searchProjectMemory } from "@/lib/server/memory";
 import { generateChangeScope } from "@/lib/server/changes";
 import type { ChangeScope } from "@/lib/server/changes";
 import { DERIVE_OPTIONS_DEFAULTS } from "@/lib/types";
 import type { DeriveOptions, MemoryMode, StageRole, TaskStage, TaskWithRelations } from "@/lib/types";
+
+type MemorySectionResult = {
+  content: string;
+  effectiveMemoryMode: MemoryMode;
+};
 
 const MAX_CONTEXT_CHARS = 12000;
 
@@ -62,16 +67,18 @@ export async function buildContextPackage(
 
   const includeMessages = options.includeMessages ?? task.contextPolicy.includes("selectedMessages");
 
+  const memoryResult = memorySection(task.memoryMode, task.projectId, task.prompt, quotas.memory);
+
   const sections = [
     "# 任务上下文包",
-    metadataSection(task),
+    metadataSection(task, memoryResult.effectiveMemoryMode),
     promptSection(task, quotas.prompt),
     quotas.parentContext > 0 ? parentContextSection(task, includeMessages, quotas.parentContext) : "",
     quotas.stages > 0 ? stagesSection(task.stages, quotas.stages) : "",
     quotas.review > 0 ? reviewSection(task.stages, quotas.review) : "",
     quotas.summary > 0 ? summarySection(task, quotas.summary) : "",
     quotas.messages > 0 ? messagesSection(task, includeMessages, quotas.messages) : "",
-    memorySection(task.memoryMode, task.projectId, task.prompt, quotas.memory),
+    memoryResult.content,
     changeScopeContent,
     options.extraInstruction ? `## 本次补充指令\n${clamp(options.extraInstruction.trim(), 800)}` : "",
   ].filter(Boolean);
@@ -82,7 +89,7 @@ export async function buildContextPackage(
     : task.contextPolicy;
   return {
     policy,
-    memoryMode: task.memoryMode,
+    memoryMode: memoryResult.effectiveMemoryMode,
     content,
     tokenEstimate: estimateTokens(content),
   };
@@ -101,12 +108,13 @@ export function saveContextSnapshot(taskId: string, stageId: string | null, cont
 
 // ─── Section 函数 ────────────────────────────────────────────
 
-function metadataSection(task: TaskWithRelations) {
+function metadataSection(task: TaskWithRelations, effectiveMemoryMode: MemoryMode) {
   return [
     "## 隔离策略",
     `任务 ID：${task.id}`,
     `父任务 ID：${task.parentTaskId || "无"}`,
-    `记忆模式：${task.memoryMode}`,
+    `任务记忆策略：${task.memoryMode}`,
+    `本次实际记忆模式：${effectiveMemoryMode}`,
     `上下文策略：${task.contextPolicy}`,
     "默认不携带完整聊天、完整日志或完整 stdout；只传递任务摘要、阶段摘要、审查结论和显式选择的消息。",
   ].join("\n");
@@ -261,24 +269,44 @@ function messagesSection(task: TaskWithRelations, includeMessages: boolean, maxC
   return clamp(content, maxChars);
 }
 
-function memorySection(memoryMode: MemoryMode, projectId: string, taskPrompt: string, maxChars: number): string {
-  if (memoryMode === "off") return "## 项目记忆\n已关闭。";
-
-  if (memoryMode === "projectMemory") {
-    const relevant = searchProjectMemory(projectId, {
-      categories: ["architecture", "decision", "convention", "issue"],
-      limit: 5,
-    });
-
-    if (!relevant.length) return "## 项目记忆\n已开启，当前无相关记忆。";
-
-    const items = relevant.map((m) =>
-      `### [${m.category}] ${m.source === "auto" ? `(来自任务 ${m.taskId})` : "(手动)"}\n${m.content}`,
-    );
-    return clamp(`## 项目记忆\n${items.join("\n\n")}`, maxChars);
+function memorySection(memoryMode: MemoryMode, projectId: string, taskPrompt: string, maxChars: number): MemorySectionResult {
+  // 旧任务的非 auto 值按历史语义兼容处理
+  if (memoryMode === "off") {
+    return { content: "## 项目记忆\n已关闭。", effectiveMemoryMode: "off" };
   }
 
-  return "## 项目记忆\n仅使用本任务压缩摘要。";
+  if (memoryMode === "taskSummary") {
+    return { content: "## 项目记忆\n仅使用本任务压缩摘要。", effectiveMemoryMode: "taskSummary" };
+  }
+
+  if (memoryMode === "projectMemory") {
+    return buildProjectMemoryContent(projectId, maxChars, "projectMemory");
+  }
+
+  // memoryMode === "auto"：读取项目设置决定实际行为
+  const settings = getProjectSettings(projectId);
+  if (!settings.memoryInjectEnabled) {
+    return { content: "## 项目记忆\n已关闭。", effectiveMemoryMode: "off" };
+  }
+
+  return buildProjectMemoryContent(projectId, maxChars, "projectMemory");
+}
+
+function buildProjectMemoryContent(projectId: string, maxChars: number, effectiveMode: MemoryMode): MemorySectionResult {
+  const relevant = searchProjectMemory(projectId, {
+    categories: ["architecture", "decision", "convention", "issue"],
+    status: "confirmed",
+    limit: 5,
+  });
+
+  if (!relevant.length) {
+    return { content: "## 项目记忆\n已开启，暂无已确认项目记忆。", effectiveMemoryMode: effectiveMode };
+  }
+
+  const items = relevant.map((m) =>
+    `### [${m.category}] ${m.source === "auto" ? `(来自任务 ${m.taskId})` : "(手动)"}\n${m.content}`,
+  );
+  return { content: clamp(`## 项目记忆\n${items.join("\n\n")}`, maxChars), effectiveMemoryMode: effectiveMode };
 }
 
 // ─── 工具函数 ────────────────────────────────────────────────

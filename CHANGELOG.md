@@ -11,9 +11,15 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - 修复当前任务追加说明后不广播任务更新、直达任务页项目状态可能未同步导致看似无响应的问题
 - 修复 Codex 审查阶段传入 `--uncommitted -` 导致 CLI 参数互斥、计划审查中断的问题
 - 修复 code review 发现的问题：continueAfterMessage 竞态条件防护、continue 路由验证冗余清理、移除未使用的 continueTaskSchema
+- 修复 code review 发现的问题：createTaskSchema 添加 `.strict()` 拒绝已移除的 `memoryMode`/`contextPolicy` 字段，返回 400 而非静默忽略
+- 修复设置面板切换项目时旧项目数据残留问题：加载开始时清空 settings 和 memories 状态
 
 ### Changed
-- 任务详情主流输出改为“用户输入任务 / Moss 回答”交替展示，并保留协作阶段与日志折叠详情。
+- 记忆设置从 Composer 任务级选择器迁移到 Topbar 项目级设置面板，新任务默认 `memoryMode=auto`，系统根据项目设置自动决定记忆注入和提取行为。
+- 设置面板重构为左侧导航+右侧内容的分栏布局，支持多模块扩展（记忆、通用等）。
+- Composer 移除记忆模式选择器，减少用户创建任务前的决策负担。
+- 上下文快照记录本次实际记忆模式（`effectiveMemoryMode`），而非抽象的 `auto`。
+- 任务详情主流输出改为”用户输入任务 / Moss 回答”交替展示，并保留协作阶段与日志折叠详情。
 - 默认协作流保留 Claude Code 审核阶段，审核产出作为 Moss 回答展示，避免审核结果和最终回答重复。
 - 新任务不再生成“汇总交付”阶段，历史遗留 summarize 阶段执行时会被跳过。
 - 当前任务输入说明默认追加到当前任务，只有点击顶部“新开任务”后才创建独立任务

@@ -10,3 +10,6 @@ coverage
 .moss-agent
 *.log
 .claude/settings.local.json
+.qoder/*
+!.qoder/specs/
+!.qoder/specs/**

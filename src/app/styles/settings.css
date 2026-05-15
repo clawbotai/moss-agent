@@ -1,0 +1,343 @@
+/* ─── Settings Popover Wrapper ───────────────────────────── */
+
+.settingsPopoverWrapper.popover {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+}
+
+/* ─── Settings Panel ─────────────────────────────────────── */
+
+.settingsPanel {
+  width: 680px;
+  max-width: 90vw;
+  max-height: 85vh;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settingsHeader h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingsHeader h3::before {
+  content: "⚙️";
+}
+
+.settingsHeader button {
+  color: var(--text-tertiary);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.settingsHeader button:hover {
+  color: var(--text-primary);
+}
+
+/* ─── Settings Body (Nav + Content) ─────────────────────── */
+
+.settingsBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ─── Settings Navigation ────────────────────────────────── */
+
+.settingsNav {
+  width: 120px;
+  flex-shrink: 0;
+  padding: 12px 8px;
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.settingsNavItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.settingsNavItem:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.settingsNavItem.active {
+  background: rgba(139, 124, 248, 0.1);
+  color: var(--accent-primary);
+}
+
+/* ─── Settings Content ───────────────────────────────────── */
+
+.settingsContent {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.settingsLoading,
+.settingsError,
+.settingsEmpty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.settingsError {
+  color: var(--error);
+}
+
+/* ─── Settings Module ────────────────────────────────────── */
+
+.settingsModule {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingsModuleHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.settingsModuleIcon {
+  font-size: 16px;
+}
+
+/* ─── Settings Sections ──────────────────────────────────── */
+
+.settingsDivider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 12px 0;
+}
+
+.settingsSectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.settingsPlaceholder {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.settingsPlaceholderHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-disabled);
+}
+
+/* ─── Toggle ─────────────────────────────────────────────── */
+
+.memoryToggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.memoryToggle + .memoryToggle {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.memoryToggleBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.memoryToggleLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.memoryToggleDesc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.toggleSwitch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--border-default);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  border: none;
+  padding: 0;
+}
+
+.toggleSwitch[aria-checked="true"] {
+  background: var(--accent-primary);
+}
+
+.toggleSwitch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition-fast);
+}
+
+.toggleSwitch[aria-checked="true"]::after {
+  transform: translateX(16px);
+}
+
+.toggleSwitch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggleSwitch:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* ─── Memory List ────────────────────────────────────────── */
+
+.memoryList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.memoryItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  transition: background var(--transition-fast);
+}
+
+.memoryItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.memoryItemBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.memoryItemCategory {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: rgba(139, 124, 248, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.memoryItemContent {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.memoryItemDelete {
+  flex-shrink: 0;
+  color: var(--text-disabled);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.memoryItemDelete:hover {
+  color: var(--error);
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .settingsPanel {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .settingsBody {
+    flex-direction: column;
+  }
+
+  .settingsNav {
+    width: 100%;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 8px;
+    overflow-x: auto;
+  }
+
+  .settingsNavItem {
+    flex-shrink: 0;
+  }
+}

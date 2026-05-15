@@ -20,6 +20,7 @@ import type {
   PermissionLevel,
   Project,
   ProjectMemory,
+  ProjectSettings,
   StageStatus,
   Task,
   TaskContextSnapshot,
@@ -232,6 +233,14 @@ function migrate(database: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_memory_project_category ON project_memory(projectId, category);
     CREATE INDEX IF NOT EXISTS idx_memory_project_status ON project_memory(projectId, status);
+
+    CREATE TABLE IF NOT EXISTS project_settings (
+      projectId TEXT PRIMARY KEY,
+      memoryInjectEnabled INTEGER NOT NULL DEFAULT 1,
+      memoryExtractEnabled INTEGER NOT NULL DEFAULT 1,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
+    );
   `);
 }
 
@@ -316,6 +325,53 @@ export function getProjectByPath(projectPath: string): Project | null {
   );
 }
 
+// ─── Project Settings ───────────────────────────────────
+
+export function getProjectSettings(projectId: string): ProjectSettings {
+  const project = getProject(projectId);
+  if (!project) throw new Error("项目不存在");
+
+  let row = getDb()
+    .prepare("SELECT * FROM project_settings WHERE projectId = ?")
+    .get(projectId) as { projectId: string; memoryInjectEnabled: number; memoryExtractEnabled: number; updatedAt: string } | undefined;
+
+  if (!row) {
+    const now = nowIso();
+    getDb()
+      .prepare("INSERT OR IGNORE INTO project_settings (projectId, memoryInjectEnabled, memoryExtractEnabled, updatedAt) VALUES (?, 1, 1, ?)")
+      .run(projectId, now);
+    row = getDb()
+      .prepare("SELECT * FROM project_settings WHERE projectId = ?")
+      .get(projectId) as { projectId: string; memoryInjectEnabled: number; memoryExtractEnabled: number; updatedAt: string } | undefined;
+    if (!row) throw new Error("项目设置初始化失败");
+  }
+
+  return {
+    projectId: row.projectId,
+    memoryInjectEnabled: Boolean(row.memoryInjectEnabled),
+    memoryExtractEnabled: Boolean(row.memoryExtractEnabled),
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function upsertProjectSettings(
+  projectId: string,
+  patch: Partial<Pick<ProjectSettings, "memoryInjectEnabled" | "memoryExtractEnabled">>,
+): ProjectSettings {
+  const current = getProjectSettings(projectId);
+  const now = nowIso();
+  const next = {
+    memoryInjectEnabled: patch.memoryInjectEnabled ?? current.memoryInjectEnabled,
+    memoryExtractEnabled: patch.memoryExtractEnabled ?? current.memoryExtractEnabled,
+  };
+
+  getDb()
+    .prepare("UPDATE project_settings SET memoryInjectEnabled = ?, memoryExtractEnabled = ?, updatedAt = ? WHERE projectId = ?")
+    .run(next.memoryInjectEnabled ? 1 : 0, next.memoryExtractEnabled ? 1 : 0, now, projectId);
+
+  return { projectId, ...next, updatedAt: now };
+}
+
 export function createTask(input: CreateTaskInput): Task {
   const project = getProject(input.projectId);
   if (!project) throw new Error("项目不存在");
@@ -331,8 +387,8 @@ export function createTask(input: CreateTaskInput): Task {
     targetAgent: input.targetAgent || null,
     budget: input.budget,
     permission: input.permission,
-    memoryMode: input.memoryMode || "taskSummary",
-    contextPolicy: input.contextPolicy || "taskSummary",
+    memoryMode: input.memoryMode || "auto",
+    contextPolicy: input.contextPolicy || "auto",
     status: "queued",
     currentStage: null,
     summary: null,
