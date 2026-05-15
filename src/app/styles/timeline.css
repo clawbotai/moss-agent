@@ -1,0 +1,414 @@
+/* Timeline Stream */
+.timelineStream {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.tlItem {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 14px;
+  position: relative;
+  padding: 6px 0;
+}
+
+.tlConversation {
+  display: contents;
+}
+
+.tlDot {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.tlDotPulse {
+  border-color: var(--info);
+  color: var(--info);
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.tlDotWarn {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.tlDotSuccess {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.tlContent {
+  min-width: 0;
+  padding-bottom: 10px;
+}
+
+.tlCard {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: transparent;
+}
+
+.tlUserCard {
+  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.tlPrompt .tlDot,
+.tlUserMessage .tlDot {
+  border-color: color-mix(in srgb, var(--tl-user) 52%, transparent);
+  background: linear-gradient(135deg, #7c3aed, var(--tl-user));
+  color: #fff;
+  box-shadow: 0 8px 24px var(--tl-user-glow);
+}
+
+.tlPrompt .tlCard,
+.tlUserMessage .tlCard {
+  border-color: var(--tl-user-border);
+  background: var(--tl-user-bg);
+}
+
+.tlPrompt .tlPromptText,
+.tlUserMessage .tlPromptText {
+  color: var(--text-primary);
+}
+
+.tlAgentMessage .tlCard {
+  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.tlDeliveryCard {
+  border-color: rgba(52, 211, 153, 0.2);
+  background: rgba(52, 211, 153, 0.045);
+}
+
+.tlMessageHead {
+  margin-bottom: 5px;
+  padding-left: 1px;
+}
+
+.tlCard > .tlPromptText {
+  margin-top: 0;
+}
+
+.tlDeliveryCard .markdownBlock {
+  margin-top: 0;
+}
+
+.tlMossMessage .tlDot,
+.tlSummary .tlDot {
+  background: var(--tl-moss-dot);
+}
+
+.tlStage .tlDot,
+.tlInternalMessage .tlDot {
+  border-color: color-mix(in srgb, var(--warning) 38%, transparent);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.tlFailed .tlDot {
+  border-color: color-mix(in srgb, var(--error) 36%, transparent);
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.tlStageShell {
+  border: 1px solid var(--tl-stage-border);
+  border-radius: var(--radius-md);
+  background: var(--tl-stage-bg);
+  overflow: hidden;
+}
+
+.tlFailed .tlStageShell {
+  border-color: var(--tl-failed-border);
+  background: var(--tl-failed-bg);
+}
+
+.tlStageSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 7px 11px;
+  color: var(--warning);
+  cursor: pointer;
+  list-style: none;
+}
+
+.tlStageSummary::-webkit-details-marker {
+  display: none;
+}
+
+.tlStageTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tlStageSummary time {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tlChevron {
+  color: var(--text-disabled);
+  transition: transform var(--transition-fast);
+}
+
+.tlStageShell[open] .tlChevron {
+  transform: rotate(180deg);
+}
+
+.tlStageBody {
+  border-top: 1px solid var(--tl-stage-divider);
+  padding: 8px 10px 10px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.tlFailed .tlStageBody {
+  border-top-color: var(--tl-failed-divider);
+}
+
+.tlHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  flex-wrap: wrap;
+}
+
+.tlHead strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tlHead time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.tlMeta {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.tlDuration {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.tlStatus {
+  margin-left: auto;
+  min-width: 48px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tlStatus-completed {
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--success);
+}
+
+.tlStatus-running {
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  background: rgba(96, 165, 250, 0.1);
+  color: var(--info);
+}
+
+.tlStatus-failed {
+  border: 1px solid var(--tl-failed-border);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  color: var(--error);
+}
+
+.tlStatus-queued,
+.tlStatus-waiting {
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-tertiary);
+}
+
+.tlStatus-skipped,
+.tlStatus-cancelled {
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-disabled);
+}
+
+.tlPromptText {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tlContextBadge {
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 11px;
+}
+
+.tlStageText {
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+.tlDebugBlock pre {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tlStageText p {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.tlDebugDetails {
+  margin-top: 10px;
+  color: var(--text-tertiary);
+}
+
+.tlDebugDetails summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  list-style: none;
+}
+
+.tlDebugDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.tlDebugDetails summary:hover {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.tlDebugDetails summary span {
+  color: var(--text-disabled);
+}
+
+.tlDebugBlock,
+.tlLogList {
+  margin-top: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.018);
+  padding: 10px;
+}
+
+.tlDebugBlock strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.tlSystemDebug {
+  margin-top: 0;
+}
+
+.inlineWarning {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  padding: 12px;
+  color: var(--warning);
+}
+
+.inlineWarning p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* Timeline Grid */
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.stage:hover {
+  border-color: var(--border-default);
+}
+
+.stage strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}

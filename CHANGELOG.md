@@ -4,6 +4,9 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Fixed
+- 修复 Codex 审查阶段传入 `--uncommitted -` 导致 CLI 参数互斥、计划审查中断的问题
+
 ### Changed
 - 任务详情移除顶部 detailHeader，让对话时间线直接作为详情主体展示
 

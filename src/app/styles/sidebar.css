@@ -1,0 +1,373 @@
+/* Sidebar */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  padding: 16px 12px;
+  overflow: hidden;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brandMark {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--gradient-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-glow);
+}
+
+.brand strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.brand span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Project Form */
+.projectForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.projectForm label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.projectForm input {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color var(--transition-fast);
+}
+
+.projectForm input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.projectForm input::placeholder {
+  color: var(--text-disabled);
+}
+
+.projectForm button {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.projectForm button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.projectForm button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Search Box */
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+}
+
+.searchBox input {
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.searchBox input:focus {
+  outline: none;
+}
+
+.searchBox input::placeholder {
+  color: var(--text-disabled);
+}
+
+/* Section Title */
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  padding: 8px 8px 4px;
+}
+
+/* Project & Task Lists */
+.projectList, .taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+}
+
+.taskList {
+  flex: 1;
+  min-height: 0;
+}
+
+.projectItem, .taskItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.projectItem:hover, .taskItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.projectItem.active, .taskItem.active {
+  background: var(--accent-glow);
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+}
+
+.projectItem span, .taskItem span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskItem small {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--text-disabled);
+  padding: 8px;
+}
+
+/* Add Project */
+.addProjectWrap {
+  position: relative;
+}
+
+.newProjectButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.newProjectButton:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.inlineProjectForm {
+  border: none;
+  background: transparent;
+  padding: 8px;
+  min-width: 280px;
+}
+
+/* Directory Picker */
+.directoryPicker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.directoryPickerInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.directoryPickerInput input {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color var(--transition-fast);
+}
+
+.directoryPickerInput input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.directoryPickerInput input::placeholder {
+  color: var(--text-disabled);
+}
+
+.browseButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.browseButton:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.clearButton {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.clearButton:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+/* Project Dropdown */
+.projectDropdown {
+  min-width: 260px;
+}
+
+.projectDropdownTitle {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.projectDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.projectDropdownItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.projectDropdownItem.active {
+  background: var(--accent-glow);
+  color: var(--text-primary);
+}
+
+.projectDropdownItem small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectDropdownEmpty {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+}

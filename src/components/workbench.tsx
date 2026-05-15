@@ -270,33 +270,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setError("");
   }
 
-  async function taskAction(action: "cancel" | "retry") {
-    if (!selectedTaskId) return;
-    await fetch(`/api/tasks/${selectedTaskId}/${action}`, { method: "POST" });
-    await fetchTask(selectedTaskId);
-    await refresh();
-  }
-
-  async function continueTask() {
-    if (!selectedTaskId) return;
-    await fetch(`/api/tasks/${selectedTaskId}/continue`, { method: "POST" });
-    await fetchTask(selectedTaskId);
-  }
-
-  async function switchAgent(agent: "claude" | "codex") {
-    if (!selectedTaskId) return;
-    const response = await fetch(`/api/tasks/${selectedTaskId}/switch-agent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent }),
-    });
-    const data = await response.json();
-    if (response.ok) {
-      setSelectedTaskId(data.task.id);
-      await refresh();
-    }
-  }
-
   return (
     <main className="shell">
       <ProjectSidebar
@@ -457,10 +430,6 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
 
           <TaskDetail
             task={taskDetails}
-            onCancel={() => taskAction("cancel")}
-            onRetry={() => taskAction("retry")}
-            onContinue={continueTask}
-            onSwitch={switchAgent}
           />
         </div>
 

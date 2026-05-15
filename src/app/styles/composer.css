@@ -1,0 +1,245 @@
+/* Log Panel */
+.logPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.logHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.logHeader span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.logHeader small {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.logs {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.logLine {
+  display: grid;
+  grid-template-columns: 62px 42px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+  color: var(--text-secondary);
+}
+
+.logLine time {
+  color: var(--text-disabled);
+  font-size: 11px;
+}
+
+.logLine small {
+  align-self: start;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.logLine span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.logLine.error { color: var(--error); }
+.logLine.warn { color: var(--warning); }
+.logLine.event small {
+  border-color: rgba(96, 165, 250, 0.24);
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.logLine.warning small {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.logLine.error small {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+/* Composer */
+.composer {
+  width: min(860px, calc(100% - 48px));
+  margin: 16px auto 20px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 4;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.selectWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.selectWrap select {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding-right: 16px;
+  cursor: pointer;
+}
+
+.selectWrap select:focus {
+  outline: none;
+}
+
+.promptRow {
+  display: grid;
+  grid-template-columns: 32px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+}
+
+.promptRow > svg {
+  color: var(--text-tertiary);
+}
+
+.promptRow textarea {
+  min-height: 48px;
+  max-height: 120px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  resize: vertical;
+}
+
+.promptRow textarea:focus {
+  outline: none;
+}
+
+.promptRow textarea::placeholder {
+  color: var(--text-disabled);
+}
+
+.promptRow button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--gradient-accent);
+  border-radius: var(--radius-md);
+  color: white;
+  transition: all var(--transition-fast);
+}
+
+.promptRow button:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-glow);
+}
+
+.promptRow button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.composerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.composerActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: all var(--transition-fast);
+}
+
+.contextToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.contextToggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-primary);
+}
+
+.composerActions button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.composerActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.errorLine {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--error);
+}

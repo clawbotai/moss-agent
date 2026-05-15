@@ -60,6 +60,7 @@ export const codexAdapter: AgentAdapter = {
     const prompt = [
       "你是协作调度平台中的 Codex 审查 agent。",
       "请审查给定计划或当前未提交变更，优先指出阻塞问题、风险和缺失测试。",
+      "只进行审查，不要修改文件；如果需要审查代码变更，请先读取 git status 和 git diff。",
       budgetInstruction(context.budget),
       "",
       context.prompt,
@@ -67,15 +68,14 @@ export const codexAdapter: AgentAdapter = {
 
     const result = await runProcess({
       command: codexBin(),
-      args: ["review", "--uncommitted", "-"],
+      args: ["exec", "--json", "-C", context.projectPath, "-s", "read-only", prompt],
       cwd: context.projectPath,
-      stdin: prompt,
       signal: context.signal,
       onStdout: (chunk) => context.onLog(chunk),
       onStderr: (chunk) => context.onLog(chunk, { stream: "stderr" }),
     });
 
-    const summary = result.stdout.trim() || result.stderr.trim() || "Codex 审查结束";
+    const summary = extractCodexSummary(result.stdout) || result.stderr.trim() || "Codex 审查结束";
     return { ok: result.exitCode === 0, summary, exitCode: result.exitCode };
   },
 };
