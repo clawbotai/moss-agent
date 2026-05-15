@@ -137,3 +137,88 @@ export interface CreateProjectInput {
   name?: string;
   path: string;
 }
+
+// ─── Artifact ────────────────────────────────────────────
+
+export type ArtifactType = "plan" | "review" | "diff" | "test" | "summary" | "handoff" | "report";
+
+export interface Artifact {
+  id: string;
+  taskId: string;
+  stageId: string | null;
+  type: ArtifactType;
+  title: string;
+  content: string;
+  filePath: string | null;
+  metadataJson: string | null;
+  createdAt: string;
+}
+
+// ─── Agent Messages ──────────────────────────────────────
+
+export type AgentMessageIntent = "clarification" | "review_comment" | "blocked" | "status_update" | "fix_request";
+
+export interface AgentMessage {
+  id: string;
+  taskId: string;
+  stageId: string | null;
+  fromAgent: AgentId | "system";
+  toAgent: AgentId | "system" | "user";
+  intent: AgentMessageIntent;
+  content: string;
+  artifactId: string | null;
+  createdAt: string;
+}
+
+// ─── Agent Runs ──────────────────────────────────────────
+
+export interface AgentRun {
+  id: string;
+  taskId: string;
+  stageId: string;
+  agent: AgentId;
+  command: string;
+  startedAt: string;
+  completedAt: string | null;
+  exitCode: number | null;
+  tokenEstimate: number | null;
+  errorMessage: string | null;
+}
+
+// ─── Project Memory ──────────────────────────────────────
+
+export type MemoryCategory = "architecture" | "decision" | "convention" | "issue" | "context";
+export type MemoryStatus = "draft" | "confirmed";
+
+export interface ProjectMemory {
+  id: string;
+  projectId: string;
+  category: MemoryCategory;
+  content: string;
+  source: "auto" | "manual";
+  status: MemoryStatus;
+  taskId: string | null;
+  tags: string[];
+  createdAt: string;
+  confirmedAt: string | null;
+}
+
+// ─── Derive Options ─────────────────────────────────────
+
+export interface DeriveOptions {
+  inheritStages: "completed" | "lastN" | number;
+  inheritMessages: boolean;
+  contextScope: "minimal" | "standard" | "full";
+  includeParentSummary: boolean;
+}
+
+export const DERIVE_OPTIONS_DEFAULTS: DeriveOptions = {
+  inheritStages: "completed",
+  inheritMessages: false,
+  contextScope: "standard",
+  includeParentSummary: true,
+};
+
+// ─── Stage Role ─────────────────────────────────────────
+
+export type StageRole = "plan" | "review" | "revise" | "implement" | "audit" | "summarize";

@@ -4,13 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 import type {
   AgentId,
+  AgentMessage,
+  AgentMessageIntent,
+  AgentRun,
+  Artifact,
+  ArtifactType,
   BudgetLevel,
   CreateProjectInput,
   CreateTaskInput,
+  DeriveOptions,
   LogLevel,
+  MemoryCategory,
   MemoryMode,
+  MemoryStatus,
   PermissionLevel,
   Project,
+  ProjectMemory,
   StageStatus,
   Task,
   TaskContextSnapshot,
@@ -22,6 +31,7 @@ import type {
   TaskStatus,
   TaskWithRelations,
 } from "@/lib/types";
+import { DERIVE_OPTIONS_DEFAULTS } from "@/lib/types";
 import { nowIso, shortTitle } from "@/lib/server/time";
 
 type DbTaskRow = Omit<Task, "targetAgent"> & { targetAgent: AgentId | null };
@@ -154,6 +164,75 @@ function migrate(database: Database.Database) {
   addColumnIfMissing(database, "tasks", "parentTaskId", "TEXT");
   addColumnIfMissing(database, "tasks", "memoryMode", "TEXT NOT NULL DEFAULT 'taskSummary'");
   addColumnIfMissing(database, "tasks", "contextPolicy", "TEXT NOT NULL DEFAULT 'taskSummary'");
+  addColumnIfMissing(database, "tasks", "deriveOptionsJson", "TEXT");
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS artifacts (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      stageId TEXT,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      filePath TEXT,
+      metadataJson TEXT,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY(stageId) REFERENCES stages(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_artifacts_task ON artifacts(taskId);
+    CREATE INDEX IF NOT EXISTS idx_artifacts_stage ON artifacts(stageId);
+
+    CREATE TABLE IF NOT EXISTS agent_messages (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      stageId TEXT,
+      fromAgent TEXT NOT NULL,
+      toAgent TEXT NOT NULL,
+      intent TEXT NOT NULL,
+      content TEXT NOT NULL,
+      artifactId TEXT,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY(stageId) REFERENCES stages(id) ON DELETE SET NULL,
+      FOREIGN KEY(artifactId) REFERENCES artifacts(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_messages_task ON agent_messages(taskId);
+
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      stageId TEXT NOT NULL,
+      agent TEXT NOT NULL,
+      command TEXT NOT NULL,
+      startedAt TEXT NOT NULL,
+      completedAt TEXT,
+      exitCode INTEGER,
+      tokenEstimate INTEGER,
+      errorMessage TEXT,
+      FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY(stageId) REFERENCES stages(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(taskId);
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_stage ON agent_runs(stageId);
+
+    CREATE TABLE IF NOT EXISTS project_memory (
+      id TEXT PRIMARY KEY,
+      projectId TEXT NOT NULL,
+      category TEXT NOT NULL,
+      content TEXT NOT NULL,
+      source TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft',
+      taskId TEXT,
+      tags TEXT,
+      createdAt TEXT NOT NULL,
+      confirmedAt TEXT,
+      FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_project_category ON project_memory(projectId, category);
+    CREATE INDEX IF NOT EXISTS idx_memory_project_status ON project_memory(projectId, status);
+  `);
 }
 
 const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -627,6 +706,148 @@ export function resetTaskForRetry(taskId: string) {
 
 function touchProject(projectId: string) {
   getDb().prepare("UPDATE projects SET updatedAt = ? WHERE id = ?").run(nowIso(), projectId);
+}
+
+// ─── Artifact CRUD ───────────────────────────────────────
+
+export function createArtifact(input: {
+  taskId: string;
+  stageId?: string | null;
+  type: ArtifactType;
+  title: string;
+  content: string;
+  filePath?: string | null;
+  metadataJson?: string | null;
+}): Artifact {
+  const artifact: Artifact = {
+    id: randomUUID(),
+    taskId: input.taskId,
+    stageId: input.stageId || null,
+    type: input.type,
+    title: input.title,
+    content: input.content,
+    filePath: input.filePath || null,
+    metadataJson: input.metadataJson || null,
+    createdAt: nowIso(),
+  };
+
+  getDb()
+    .prepare(
+      `INSERT INTO artifacts (id, taskId, stageId, type, title, content, filePath, metadataJson, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(artifact.id, artifact.taskId, artifact.stageId, artifact.type, artifact.title, artifact.content, artifact.filePath, artifact.metadataJson, artifact.createdAt);
+
+  return artifact;
+}
+
+export function listArtifacts(taskId: string): Artifact[] {
+  return getDb()
+    .prepare("SELECT * FROM artifacts WHERE taskId = ? ORDER BY createdAt ASC")
+    .all(taskId) as Artifact[];
+}
+
+// ─── Agent Run CRUD ──────────────────────────────────────
+
+export function createAgentRun(input: {
+  taskId: string;
+  stageId: string;
+  agent: AgentId;
+  command: string;
+}): AgentRun {
+  const run: AgentRun = {
+    id: randomUUID(),
+    taskId: input.taskId,
+    stageId: input.stageId,
+    agent: input.agent,
+    command: input.command,
+    startedAt: nowIso(),
+    completedAt: null,
+    exitCode: null,
+    tokenEstimate: null,
+    errorMessage: null,
+  };
+
+  getDb()
+    .prepare(
+      `INSERT INTO agent_runs (id, taskId, stageId, agent, command, startedAt)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(run.id, run.taskId, run.stageId, run.agent, run.command, run.startedAt);
+
+  return run;
+}
+
+export function completeAgentRun(runId: string, updates: { exitCode?: number | null; tokenEstimate?: number | null; errorMessage?: string | null }) {
+  getDb()
+    .prepare(
+      `UPDATE agent_runs SET completedAt = ?, exitCode = ?, tokenEstimate = ?, errorMessage = ? WHERE id = ?`
+    )
+    .run(nowIso(), updates.exitCode ?? null, updates.tokenEstimate ?? null, updates.errorMessage ?? null, runId);
+}
+
+export function listAgentRuns(taskId: string): AgentRun[] {
+  return getDb()
+    .prepare("SELECT * FROM agent_runs WHERE taskId = ? ORDER BY startedAt ASC")
+    .all(taskId) as AgentRun[];
+}
+
+// ─── Agent Message CRUD ──────────────────────────────────
+
+export function createAgentMessage(input: {
+  taskId: string;
+  stageId?: string | null;
+  fromAgent: string;
+  toAgent: string;
+  intent: AgentMessageIntent;
+  content: string;
+  artifactId?: string | null;
+}): AgentMessage {
+  const message: AgentMessage = {
+    id: randomUUID(),
+    taskId: input.taskId,
+    stageId: input.stageId || null,
+    fromAgent: input.fromAgent as AgentMessage["fromAgent"],
+    toAgent: input.toAgent as AgentMessage["toAgent"],
+    intent: input.intent,
+    content: input.content,
+    artifactId: input.artifactId || null,
+    createdAt: nowIso(),
+  };
+
+  getDb()
+    .prepare(
+      `INSERT INTO agent_messages (id, taskId, stageId, fromAgent, toAgent, intent, content, artifactId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(message.id, message.taskId, message.stageId, message.fromAgent, message.toAgent, message.intent, message.content, message.artifactId, message.createdAt);
+
+  return message;
+}
+
+export function listAgentMessages(taskId: string): AgentMessage[] {
+  return getDb()
+    .prepare("SELECT * FROM agent_messages WHERE taskId = ? ORDER BY createdAt ASC")
+    .all(taskId) as AgentMessage[];
+}
+
+export function getParentTaskId(taskId: string): string | null {
+  const row = getDb().prepare("SELECT parentTaskId FROM tasks WHERE id = ?").get(taskId) as
+    | { parentTaskId: string | null }
+    | undefined;
+  return row?.parentTaskId ?? null;
+}
+
+export function getTaskDeriveOptions(taskId: string): DeriveOptions {
+  const row = getDb().prepare("SELECT deriveOptionsJson FROM tasks WHERE id = ?").get(taskId) as
+    | { deriveOptionsJson: string | null }
+    | undefined;
+  if (!row?.deriveOptionsJson) return DERIVE_OPTIONS_DEFAULTS;
+  try {
+    return { ...DERIVE_OPTIONS_DEFAULTS, ...JSON.parse(row.deriveOptionsJson) };
+  } catch {
+    return DERIVE_OPTIONS_DEFAULTS;
+  }
 }
 
 export const enumValues = {

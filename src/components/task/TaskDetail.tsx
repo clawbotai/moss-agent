@@ -5,6 +5,7 @@ import type { TaskLog } from "@/lib/types";
 import type { TaskDetailProps } from "./types";
 import { buildConversationTurns } from "./utils";
 import { ConversationTurnView, TimelineDebugLogs } from "./TimelineItems";
+import { MemoryConfirm } from "@/components/task/MemoryConfirm";
 
 export function TaskDetail({ task }: TaskDetailProps) {
   const logsByStage = useMemo(() => {
@@ -39,6 +40,10 @@ export function TaskDetail({ task }: TaskDetailProps) {
         ))}
 
         {taskLevelLogs.length > 0 && <TimelineDebugLogs logs={taskLevelLogs} />}
+
+        {task.status === "completed" && task.project && (
+          <MemoryConfirm projectId={task.projectId} taskId={task.id} />
+        )}
       </div>
     </section>
   );

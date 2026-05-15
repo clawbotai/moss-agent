@@ -9,11 +9,15 @@ import {
   resetTaskForRetry,
   updateStage,
   updateTaskStatus,
+  createAgentRun,
+  completeAgentRun,
+  createArtifact,
 } from "@/lib/server/db";
+import { extractMemoryFromTask } from "@/lib/server/memory";
 import { buildContextPackage, saveContextSnapshot } from "@/lib/server/context";
 import { nowIso } from "@/lib/server/time";
 import { buildStagePrompt, buildWorkflow } from "@/lib/server/workflows";
-import type { LogLevel, StageStatus, TaskLog, TaskStage } from "@/lib/types";
+import type { ArtifactType, LogLevel, StageStatus, TaskLog, TaskStage } from "@/lib/types";
 import type { AgentRunResult } from "@/lib/agents/types";
 import { getAgent } from "@/lib/agents/registry";
 
@@ -209,6 +213,17 @@ class TaskScheduler {
         summary,
         completedAt: nowIso(),
       });
+
+      // 自动提取项目记忆（草稿状态，需用户确认）
+      try {
+        const completedTask = getTaskWithRelations(taskId);
+        if (completedTask) {
+          extractMemoryFromTask(completedTask);
+        }
+      } catch {
+        // 记忆提取失败不应影响任务完成状态
+      }
+
       this.log(taskId, "info", "任务完成", { summary });
       this.emitTask(taskId);
     } catch (error) {
@@ -238,7 +253,7 @@ class TaskScheduler {
     if (!task) throw new Error("任务不存在");
 
     const startedAt = nowIso();
-    const contextPackage = buildContextPackage(taskId, { stageId: stage.id });
+    const contextPackage = await buildContextPackage(taskId, { stageId: stage.id });
     saveContextSnapshot(taskId, stage.id, contextPackage);
     const prompt = buildStagePrompt(task, stage, previousSummaries, contextPackage.content);
     updateStage(stage.id, {
@@ -288,12 +303,32 @@ class TaskScheduler {
       onLog,
     };
 
+    // 记录 Agent Run 开始
+    const agentRun = createAgentRun({
+      taskId,
+      stageId: stage.id,
+      agent: stage.agent,
+      command: `${stage.agent} ${stage.role}`,
+    });
+
     let result: AgentRunResult;
     try {
       result =
         stage.role === "review" || stage.role === "audit"
           ? await adapter.review(runContext)
           : await adapter.run(runContext);
+      // Agent Run 成功完成
+      completeAgentRun(agentRun.id, {
+        exitCode: result.exitCode,
+        errorMessage: result.ok ? null : result.summary?.slice(0, 500) || null,
+      });
+    } catch (runError) {
+      // Agent Run 异常
+      completeAgentRun(agentRun.id, {
+        exitCode: -1,
+        errorMessage: runError instanceof Error ? runError.message.slice(0, 500) : "未知错误",
+      });
+      throw runError;
     } finally {
       clearTimeout(stuckTimer);
     }
@@ -314,6 +349,20 @@ class TaskScheduler {
       completedAt: nowIso(),
     });
     previousSummaries.push(`${stage.name}：${result.summary.slice(0, MAX_STAGE_SUMMARY_LENGTH)}`);
+
+    // 为 plan/review/audit 阶段自动创建 artifact
+    const ARTIFACT_TYPE_MAP: Record<string, string> = { plan: "plan", review: "review", audit: "report" };
+    const artifactType = ARTIFACT_TYPE_MAP[stage.role];
+    if (artifactType && result.summary) {
+      createArtifact({
+        taskId,
+        stageId: stage.id,
+        type: artifactType as ArtifactType,
+        title: `${stage.name} 输出`,
+        content: result.summary.slice(0, MAX_SUMMARY_LENGTH),
+      });
+    }
+
     this.log(taskId, "info", `阶段完成：${stage.name}`, {
       stageId: stage.id,
       summary: result.summary.slice(0, MAX_STAGE_SUMMARY_LENGTH),

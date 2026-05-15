@@ -19,7 +19,7 @@ export async function POST(request: Request, context: RouteContext) {
       getScheduler().cancel(source.id);
     }
 
-    const contextPackage = buildContextPackage(taskId, {
+    const contextPackage = await buildContextPackage(taskId, {
       extraInstruction: `切换为 ${agent} 继续执行。`,
     });
     saveContextSnapshot(taskId, null, contextPackage);
