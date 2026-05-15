@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Bot,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   CircleStop,
   Code2,
@@ -17,7 +18,7 @@ import {
 import { useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { TaskLog, TaskStage, TaskWithRelations } from "@/lib/types";
+import type { TaskLog, TaskMessage, TaskStage, TaskWithRelations } from "@/lib/types";
 import { statusLabel } from "@/components/common/StatusDot";
 
 interface TaskDetailProps {
@@ -29,6 +30,60 @@ interface TaskDetailProps {
 }
 
 type DerivedLogKind = "event" | "agent-output" | "warning" | "error";
+
+type ConversationQuestion = {
+  key: string;
+  content: string;
+  createdAt: string;
+  includeInContext?: boolean;
+};
+
+type CollaborationEntry =
+  | {
+      type: "stage";
+      key: string;
+      at: number;
+      order: number;
+      stage: TaskStage;
+    }
+  | {
+      type: "message";
+      key: string;
+      at: number;
+      order: number;
+      message: TaskMessage;
+    }
+  | {
+      type: "error";
+      key: string;
+      at: number;
+      order: number;
+      errorMessage: string;
+      status: string;
+    };
+
+type AnswerEntry =
+  | {
+      type: "summary";
+      key: string;
+      at: number;
+      order: number;
+      summary: string;
+    }
+  | {
+      type: "message";
+      key: string;
+      at: number;
+      order: number;
+      message: TaskMessage;
+    };
+
+type ConversationTurn = {
+  key: string;
+  question: ConversationQuestion;
+  collaboration: CollaborationEntry[];
+  answers: AnswerEntry[];
+};
 
 const VALID_STAGE_STATUSES = new Set(["queued", "running", "completed", "failed", "waiting", "skipped", "cancelled"]);
 
@@ -50,13 +105,16 @@ export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: Ta
     return task.logs.filter((log) => !log.stageId);
   }, [task]);
 
+  const conversationTurns = useMemo(() => {
+    if (!task) return [];
+    return buildConversationTurns(task);
+  }, [task]);
+
   if (!task) return null;
 
   const cancellable = ["queued", "running", "stuck"].includes(task.status);
   const retryable = !["queued", "running"].includes(task.status);
   const switchable = task.status === "stuck" || retryable;
-  const stageErrorMessages = new Set(task.stages.map((s) => s.errorMessage).filter(Boolean));
-  const showTopLevelError = task.errorMessage && !stageErrorMessages.has(task.errorMessage);
 
   return (
     <section className="detailPanel taskRunView fade-in">
@@ -91,25 +149,9 @@ export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: Ta
       </div>
 
       <div className="timelineStream">
-        <TimelinePrompt prompt={task.prompt} createdAt={task.createdAt} />
-
-        {task.messages.map((message) => (
-          <TimelineMessage key={message.id} message={message} />
+        {conversationTurns.map((turn) => (
+          <ConversationTurnView key={turn.key} turn={turn} logsByStage={logsByStage} />
         ))}
-
-        {getVisibleStages(task.stages).map((stage) => (
-          <TimelineStage
-            key={stage.id}
-            stage={stage}
-            logs={logsByStage.get(stage.id) || []}
-          />
-        ))}
-
-        {showTopLevelError && (
-          <TimelineError errorMessage={task.errorMessage!} status={task.status} />
-        )}
-
-        {task.summary && <TimelineSummary summary={task.summary} />}
 
         {taskLevelLogs.length > 0 && <TimelineDebugLogs logs={taskLevelLogs} />}
       </div>
@@ -117,18 +159,54 @@ export function TaskDetail({ task, onCancel, onRetry, onContinue, onSwitch }: Ta
   );
 }
 
-function TimelinePrompt({ prompt, createdAt }: { prompt: string; createdAt: string }) {
+function ConversationTurnView({
+  turn,
+  logsByStage,
+}: {
+  turn: ConversationTurn;
+  logsByStage: Map<string, TaskLog[]>;
+}) {
+  return (
+    <div className="tlConversation">
+      <TimelinePrompt
+        prompt={turn.question.content}
+        createdAt={turn.question.createdAt}
+        includeInContext={turn.question.includeInContext}
+      />
+      {turn.collaboration.map((entry) => (
+        <TimelineCollaborationEntry key={entry.key} entry={entry} logsByStage={logsByStage} />
+      ))}
+      {turn.answers.map((answer) => {
+        if (answer.type === "message") {
+          return <TimelineMossMessage key={answer.key} message={answer.message} />;
+        }
+        return <TimelineSummary key={answer.key} summary={answer.summary} />;
+      })}
+    </div>
+  );
+}
+
+function TimelinePrompt({
+  prompt,
+  createdAt,
+  includeInContext,
+}: {
+  prompt: string;
+  createdAt: string;
+  includeInContext?: boolean;
+}) {
   return (
     <div className="tlItem tlPrompt">
       <div className="tlDot">
         <User size={14} />
       </div>
       <div className="tlContent">
+        <div className="tlHead tlMessageHead">
+          <strong>用户</strong>
+          <time>{new Date(createdAt).toLocaleString()}</time>
+          {includeInContext && <span className="tlContextBadge">进入上下文</span>}
+        </div>
         <div className="tlCard tlUserCard">
-          <div className="tlHead">
-            <strong>用户</strong>
-            <time>{new Date(createdAt).toLocaleString()}</time>
-          </div>
           <p className="tlPromptText">{prompt}</p>
         </div>
       </div>
@@ -136,21 +214,68 @@ function TimelinePrompt({ prompt, createdAt }: { prompt: string; createdAt: stri
   );
 }
 
-function TimelineMessage({ message }: { message: TaskWithRelations["messages"][number] }) {
+function TimelineMossMessage({ message }: { message: TaskWithRelations["messages"][number] }) {
   return (
-    <div className="tlItem tlMessages">
+    <div className="tlItem tlMessages tlMossMessage">
       <div className="tlDot">
         <MessageSquareText size={14} />
       </div>
       <div className="tlContent">
-        <div className="tlCard">
-          <div className="tlHead">
-            <strong>{message.role === "user" ? "用户补充" : message.role}</strong>
-            <time>{new Date(message.createdAt).toLocaleString()}</time>
-            {message.includeInContext && <span className="tlContextBadge">进入上下文</span>}
-          </div>
-          <p className="tlPromptText">{message.content}</p>
+        <div className="tlHead tlMessageHead">
+          <strong>Moss</strong>
+          <time>{new Date(message.createdAt).toLocaleString()}</time>
         </div>
+        <div className="tlCard tlDeliveryCard">
+          <MarkdownBlock content={message.content} className="inlineSummary" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimelineCollaborationEntry({
+  entry,
+  logsByStage,
+}: {
+  entry: CollaborationEntry;
+  logsByStage: Map<string, TaskLog[]>;
+}) {
+  if (entry.type === "stage") {
+    return (
+      <TimelineStage
+        stage={entry.stage}
+        logs={logsByStage.get(entry.stage.id) || []}
+      />
+    );
+  }
+
+  if (entry.type === "message") {
+    return <TimelineInternalMessage message={entry.message} />;
+  }
+
+  return <TimelineError errorMessage={entry.errorMessage} status={entry.status} />;
+}
+
+function TimelineInternalMessage({ message }: { message: TaskWithRelations["messages"][number] }) {
+  return (
+    <div className="tlItem tlInternalMessage">
+      <div className="tlDot">
+        <MessageSquareText size={14} />
+      </div>
+      <div className="tlContent">
+        <details className="tlStageShell">
+          <summary className="tlStageSummary">
+            <span className="tlStageTitle">
+              <MessageSquareText size={14} />
+              {messageRoleLabel(message.role)}
+            </span>
+            <time>{new Date(message.createdAt).toLocaleString()}</time>
+            <ChevronDown className="tlChevron" size={14} />
+          </summary>
+          <div className="tlStageBody">
+            <p className="tlPromptText">{message.content}</p>
+          </div>
+        </details>
       </div>
     </div>
   );
@@ -182,9 +307,12 @@ function TimelineStage({
         <Code2 size={14} />
       </div>
       <div className="tlContent">
-        <div className="tlCard">
-          <div className="tlHead">
-            <strong>{stage.name}</strong>
+        <details className="tlStageShell">
+          <summary className="tlStageSummary">
+            <span className="tlStageTitle">
+              <Code2 size={14} />
+              {stage.name}
+            </span>
             <span className="tlMeta">{stage.agent} / {stage.role}</span>
             {duration && (
               <span className="tlDuration">
@@ -193,7 +321,9 @@ function TimelineStage({
               </span>
             )}
             <span className={`tlStatus tlStatus-${VALID_STAGE_STATUSES.has(stage.status) ? stage.status : "queued"}`}>{status}</span>
-          </div>
+            <ChevronDown className="tlChevron" size={14} />
+          </summary>
+          <div className="tlStageBody">
           {showBody && (
             <div className="tlStageText">
               {displayText ? <MarkdownBlock content={displayText} /> : <p>{stageFallbackText(stage)}</p>}
@@ -220,7 +350,8 @@ function TimelineStage({
               <strong>{stage.errorMessage}</strong>
             </div>
           )}
-        </div>
+          </div>
+        </details>
       </div>
     </div>
   );
@@ -291,11 +422,11 @@ function TimelineSummary({
         <CheckCircle2 size={14} />
       </div>
       <div className="tlContent">
+        <div className="tlHead tlMessageHead">
+          <strong>Moss</strong>
+          <span className="tlStatus tlStatus-completed">READY</span>
+        </div>
         <div className="tlCard tlDeliveryCard">
-          <div className="tlHead">
-            <strong>交付摘要</strong>
-            <span className="tlStatus tlStatus-completed">READY</span>
-          </div>
           <MarkdownBlock content={summary} className="inlineSummary" />
         </div>
       </div>
@@ -387,4 +518,161 @@ function getVisibleStages(stages: TaskStage[]): TaskStage[] {
   if (lastActiveIndex === -1) return [];
 
   return stages.slice(0, lastActiveIndex + 1);
+}
+
+function buildConversationTurns(task: TaskWithRelations): ConversationTurn[] {
+  const taskCreatedAt = toTime(task.createdAt);
+  const questions: ConversationQuestion[] = [
+    {
+      key: "prompt",
+      content: task.prompt,
+      createdAt: task.createdAt,
+    },
+    ...task.messages
+      .filter((message) => message.role === "user")
+      .map((message) => ({
+        key: `message-${message.id}`,
+        content: message.content,
+        createdAt: message.createdAt,
+        includeInContext: message.includeInContext,
+      })),
+  ].sort((left, right) => {
+    const leftAt = toTime(left.createdAt);
+    const rightAt = toTime(right.createdAt);
+    if (leftAt !== rightAt) return leftAt - rightAt;
+    return left.key.localeCompare(right.key);
+  });
+
+  const collaboration = buildCollaborationEntries(task);
+  const answers = buildAnswerEntries(task);
+
+  return questions.map((question, index) => {
+    const startAt = toTime(question.createdAt);
+    const nextQuestionAt = index < questions.length - 1 ? toTime(questions[index + 1].createdAt) : Number.POSITIVE_INFINITY;
+    const normalizedStartAt = Number.isFinite(startAt) ? startAt : taskCreatedAt;
+
+    return {
+      key: question.key,
+      question,
+      collaboration: sliceByTime(collaboration, normalizedStartAt, nextQuestionAt, taskCreatedAt),
+      answers: sliceByTime(answers, normalizedStartAt, nextQuestionAt, taskCreatedAt),
+    };
+  });
+}
+
+function sliceByTime<Entry extends { at: number }>(
+  sortedEntries: Entry[],
+  startAt: number,
+  nextQuestionAt: number,
+  fallbackAt: number,
+): Entry[] {
+  const lo = lowerBound(sortedEntries, startAt, fallbackAt);
+  const hi = lowerBound(sortedEntries, nextQuestionAt, fallbackAt);
+  return sortedEntries.slice(lo, hi);
+}
+
+function lowerBound<Entry extends { at: number }>(sortedEntries: Entry[], target: number, fallbackAt: number): number {
+  let lo = 0;
+  let hi = sortedEntries.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    const midAt = Number.isFinite(sortedEntries[mid].at) ? sortedEntries[mid].at : fallbackAt;
+    if (midAt < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+function buildCollaborationEntries(task: TaskWithRelations): CollaborationEntry[] {
+  const taskCreatedAt = toTime(task.createdAt);
+  const entries: CollaborationEntry[] = [];
+  const stageErrorMessages = new Set(task.stages.map((stage) => stage.errorMessage).filter(Boolean));
+  const terminalAt = toTime(task.completedAt || task.updatedAt || task.createdAt);
+  const terminalOrder = task.stages.length * 10 + 100;
+
+  for (const stage of getVisibleStages(task.stages)) {
+    entries.push({
+      type: "stage",
+      key: `stage-${stage.id}`,
+      at: toTime(stage.startedAt || stage.completedAt || task.createdAt),
+      order: stage.orderIndex * 10,
+      stage,
+    });
+  }
+
+  task.messages.forEach((message, index) => {
+    if (message.role === "user" || message.role === "agent") return;
+    entries.push({
+      type: "message",
+      key: `message-${message.id}`,
+      at: toTime(message.createdAt),
+      order: task.stages.length * 10 + 200 + index,
+      message,
+    });
+  });
+
+  if (task.errorMessage && !stageErrorMessages.has(task.errorMessage)) {
+    entries.push({
+      type: "error",
+      key: "task-error",
+      at: terminalAt,
+      order: terminalOrder,
+      errorMessage: task.errorMessage,
+      status: task.status,
+    });
+  }
+
+  return sortTimedEntries(entries, taskCreatedAt);
+}
+
+function buildAnswerEntries(task: TaskWithRelations): AnswerEntry[] {
+  const taskCreatedAt = toTime(task.createdAt);
+  const terminalAt = toTime(task.completedAt || task.updatedAt || task.createdAt);
+  const terminalOrder = task.stages.length * 10 + 100;
+  const entries: AnswerEntry[] = [];
+
+  task.messages.forEach((message, index) => {
+    if (message.role !== "agent") return;
+    entries.push({
+      type: "message",
+      key: `answer-${message.id}`,
+      at: toTime(message.createdAt),
+      order: task.stages.length * 10 + 300 + index,
+      message,
+    });
+  });
+
+  if (task.summary) {
+    entries.push({
+      type: "summary",
+      key: "task-summary",
+      at: terminalAt,
+      order: terminalOrder + 1,
+      summary: task.summary,
+    });
+  }
+
+  return sortTimedEntries(entries, taskCreatedAt);
+}
+
+function sortTimedEntries<Entry extends CollaborationEntry | AnswerEntry>(entries: Entry[], fallbackAt: number): Entry[] {
+  return [...entries].sort((left, right) => {
+    const leftAt = Number.isFinite(left.at) ? left.at : fallbackAt;
+    const rightAt = Number.isFinite(right.at) ? right.at : fallbackAt;
+    if (leftAt !== rightAt) return leftAt - rightAt;
+    return left.order - right.order;
+  });
+}
+
+function toTime(value: string | null) {
+  return value ? new Date(value).getTime() : Number.NaN;
+}
+
+function messageRoleLabel(role: TaskMessage["role"]) {
+  if (role === "user") return "用户";
+  if (role === "system") return "系统";
+  return "Agent";
 }

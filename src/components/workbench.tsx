@@ -86,6 +86,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [error, setError] = useState("");
   const [showAddProject, setShowAddProject] = useState(false);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const projectBadgeRef = useRef<HTMLButtonElement>(null);
   const addProjectBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -201,7 +202,15 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
       if (!response.ok) throw new Error(data.error || "发送消息失败");
       setPrompt("");
       setIncludePromptInContext(false);
-      if (data.task) setTaskDetails(data.task);
+      if (data.task) {
+        setTaskDetails(data.task);
+        setTimeout(() => {
+          contentRef.current?.scrollTo({
+            top: contentRef.current.scrollHeight,
+            behavior: "smooth",
+          });
+        }, 0);
+      }
     } catch (innerError) {
       setError(innerError instanceof Error ? innerError.message : "发送消息失败");
     } finally {
@@ -414,7 +423,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           </div>
         </header>
 
-        <div className={taskDetails ? "content taskContent" : "content"}>
+        <div ref={contentRef} className={taskDetails ? "content taskContent" : "content"}>
           {!taskDetails && (
             <section className="heroPanel">
               <AnimatedGradient />

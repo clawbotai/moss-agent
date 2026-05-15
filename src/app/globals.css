@@ -36,6 +36,19 @@
   --info: #60a5fa;
   --info-bg: rgba(96, 165, 250, 0.08);
 
+  /* Timeline Role Colors */
+  --tl-user: #a855f7;
+  --tl-user-border: rgba(168, 85, 247, 0.34);
+  --tl-user-bg: rgba(88, 28, 135, 0.2);
+  --tl-user-glow: rgba(124, 58, 237, 0.24);
+  --tl-stage-border: rgba(245, 158, 11, 0.2);
+  --tl-stage-bg: rgba(245, 158, 11, 0.045);
+  --tl-stage-divider: rgba(245, 158, 11, 0.14);
+  --tl-failed-border: rgba(248, 113, 113, 0.22);
+  --tl-failed-bg: rgba(248, 113, 113, 0.045);
+  --tl-failed-divider: rgba(248, 113, 113, 0.14);
+  --tl-moss-dot: rgba(16, 185, 129, 0.12);
+
   /* Gradients */
   --gradient-accent: linear-gradient(135deg, #8b7cf8 0%, #6366f1 50%, #4f46e5 100%);
   --gradient-subtle: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
@@ -948,22 +961,16 @@ a {
   padding-left: 24px;
 }
 
-.timelineStream::before {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: 24px;
-  bottom: 24px;
-  width: 1px;
-  background: var(--border-subtle);
-}
-
 .tlItem {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
   gap: 14px;
   position: relative;
   padding: 6px 0;
+}
+
+.tlConversation {
+  display: contents;
 }
 
 .tlDot {
@@ -1014,9 +1021,130 @@ a {
   background: rgba(255, 255, 255, 0.018);
 }
 
+.tlPrompt .tlDot,
+.tlUserMessage .tlDot {
+  border-color: color-mix(in srgb, var(--tl-user) 52%, transparent);
+  background: linear-gradient(135deg, #7c3aed, var(--tl-user));
+  color: #fff;
+  box-shadow: 0 8px 24px var(--tl-user-glow);
+}
+
+.tlPrompt .tlCard,
+.tlUserMessage .tlCard {
+  border-color: var(--tl-user-border);
+  background: var(--tl-user-bg);
+}
+
+.tlPrompt .tlPromptText,
+.tlUserMessage .tlPromptText {
+  color: var(--text-primary);
+}
+
+.tlAgentMessage .tlCard {
+  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.018);
+}
+
 .tlDeliveryCard {
   border-color: rgba(52, 211, 153, 0.2);
   background: rgba(52, 211, 153, 0.045);
+}
+
+.tlMessageHead {
+  margin-bottom: 5px;
+  padding-left: 1px;
+}
+
+.tlCard > .tlPromptText {
+  margin-top: 0;
+}
+
+.tlDeliveryCard .markdownBlock {
+  margin-top: 0;
+}
+
+.tlMossMessage .tlDot,
+.tlSummary .tlDot {
+  background: var(--tl-moss-dot);
+}
+
+.tlStage .tlDot,
+.tlInternalMessage .tlDot {
+  border-color: color-mix(in srgb, var(--warning) 38%, transparent);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.tlFailed .tlDot {
+  border-color: color-mix(in srgb, var(--error) 36%, transparent);
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.tlStageShell {
+  border: 1px solid var(--tl-stage-border);
+  border-radius: var(--radius-md);
+  background: var(--tl-stage-bg);
+  overflow: hidden;
+}
+
+.tlFailed .tlStageShell {
+  border-color: var(--tl-failed-border);
+  background: var(--tl-failed-bg);
+}
+
+.tlStageSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 7px 11px;
+  color: var(--warning);
+  cursor: pointer;
+  list-style: none;
+}
+
+.tlStageSummary::-webkit-details-marker {
+  display: none;
+}
+
+.tlStageTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tlStageSummary time {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tlChevron {
+  color: var(--text-disabled);
+  transition: transform var(--transition-fast);
+}
+
+.tlStageShell[open] .tlChevron {
+  transform: rotate(180deg);
+}
+
+.tlStageBody {
+  border-top: 1px solid var(--tl-stage-divider);
+  padding: 8px 10px 10px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.tlFailed .tlStageBody {
+  border-top-color: var(--tl-failed-divider);
 }
 
 .tlHead {
@@ -1078,8 +1206,8 @@ a {
 }
 
 .tlStatus-failed {
-  border: 1px solid rgba(248, 113, 113, 0.22);
-  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--tl-failed-border);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
   color: var(--error);
 }
 
@@ -1132,18 +1260,6 @@ a {
 .tlStageText p {
   color: var(--text-tertiary);
   font-size: 13px;
-}
-
-.tlRunning .tlContent {
-  border-left: 2px solid var(--info);
-  padding-left: 12px;
-  margin-left: -12px;
-}
-
-.tlFailed .tlContent {
-  border-left: 2px solid var(--error);
-  padding-left: 12px;
-  margin-left: -12px;
 }
 
 .tlDebugDetails {
