@@ -99,7 +99,9 @@ export function buildConversationTurns(task: TaskWithRelations): ConversationTur
     const startAt = toTime(question.createdAt);
     const nextQuestionAt = index < questions.length - 1 ? toTime(questions[index + 1].createdAt) : Number.POSITIVE_INFINITY;
     const normalizedStartAt = Number.isFinite(startAt) ? startAt : taskCreatedAt;
-    const messageAnswers = sliceByTime(agentAnswers, normalizedStartAt, nextQuestionAt, taskCreatedAt);
+    const isLastTurn = index === questions.length - 1;
+    const suppressAnswers = isLastTurn && STAGE_ANSWER_SUPPRESSED_TASK_STATUSES.has(task.status);
+    const messageAnswers = suppressAnswers ? [] : sliceByTime(agentAnswers, normalizedStartAt, nextQuestionAt, taskCreatedAt);
     const stageAnswer = buildStageAnswer(task, normalizedStartAt, nextQuestionAt, taskCreatedAt, terminalAt);
     const allAnswers = stageAnswer ? [...messageAnswers, stageAnswer] : messageAnswers;
 
