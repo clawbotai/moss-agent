@@ -97,6 +97,7 @@ a {
   border-radius: 50%;
   background: var(--text-disabled);
   flex-shrink: 0;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .statusDot.running, .statusDot.queued {
@@ -209,6 +210,17 @@ a {
   animation: fadeIn 0.5s ease-out;
 }
 
+/* Micro-animation Keyframes */
+@keyframes slideInFromBottom {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleDown {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 /* Gradient Text */
 .gradient-text {
   background: var(--gradient-accent);
@@ -288,5 +300,14 @@ a {
   .logLine {
     grid-template-columns: 56px 38px minmax(0, 1fr);
     gap: 8px;
+  }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

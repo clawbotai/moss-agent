@@ -182,6 +182,10 @@
   box-shadow: var(--shadow-glow);
 }
 
+.promptRow button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
 .promptRow button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

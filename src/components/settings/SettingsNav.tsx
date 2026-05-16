@@ -8,8 +8,8 @@ interface SettingsNavProps {
 }
 
 const modules = [
-  { id: "memory" as const, label: "记忆", icon: Brain },
   { id: "general" as const, label: "通用", icon: Settings },
+  { id: "memory" as const, label: "记忆", icon: Brain },
 ];
 
 export function SettingsNav({ activeModule, onModuleChange }: SettingsNavProps) {

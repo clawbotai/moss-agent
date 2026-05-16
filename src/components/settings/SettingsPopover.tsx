@@ -19,7 +19,7 @@ interface SettingsPopoverProps {
 type SettingsModule = "memory" | "general";
 
 export function SettingsPopover({ projectId, open, onClose, triggerRef }: SettingsPopoverProps) {
-  const [activeModule, setActiveModule] = useState<SettingsModule>("memory");
+  const [activeModule, setActiveModule] = useState<SettingsModule>("general");
   const [settings, setSettings] = useState<ProjectSettings | null>(null);
   const [memories, setMemories] = useState<ProjectMemory[]>([]);
   const [loading, setLoading] = useState(false);

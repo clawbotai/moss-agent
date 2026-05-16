@@ -78,7 +78,9 @@ function TimelineInternalMessage({ message }: { message: TaskWithRelations["mess
             <ChevronDown className="tlChevron" size={14} />
           </summary>
           <div className="tlStageBody">
-            <p className="tlPromptText">{message.content}</p>
+            <div className="tlStageBodyInner">
+              <p className="tlPromptText">{message.content}</p>
+            </div>
           </div>
         </details>
       </div>

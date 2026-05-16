@@ -106,6 +106,10 @@
   cursor: not-allowed;
 }
 
+.projectForm button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 /* Search Box */
 .searchBox {
   display: flex;
@@ -228,6 +232,10 @@
   color: var(--text-primary);
 }
 
+.newProjectButton:active {
+  transform: scale(0.97);
+}
+
 .inlineProjectForm {
   border: none;
   background: transparent;
@@ -295,6 +303,10 @@
   color: var(--text-primary);
 }
 
+.browseButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 .clearButton {
   width: 24px;
   height: 24px;
@@ -313,6 +325,10 @@
   background: var(--bg-hover);
   border-color: var(--border-default);
   color: var(--text-primary);
+}
+
+.clearButton:active {
+  transform: scale(0.97);
 }
 
 /* Project Dropdown */
@@ -353,6 +369,10 @@
 .projectDropdownItem.active {
   background: var(--accent-glow);
   color: var(--text-primary);
+}
+
+.projectDropdownItem:active {
+  transform: scale(0.97);
 }
 
 .projectDropdownItem small {

@@ -52,6 +52,10 @@
   cursor: not-allowed;
 }
 
+.memoryConfirmAllBtn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
 .memoryConfirmList {
   padding: 8px;
   display: flex;
@@ -64,6 +68,7 @@
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   border: 1px solid var(--border-subtle);
+  animation: slideInFromBottom 0.2s ease-out both;
 }
 
 .memoryConfirmItemHeader {
@@ -115,6 +120,18 @@
 .memoryActionBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.memoryActionBtn:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.memoryActionConfirm:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.memoryActionReject:active:not(:disabled) {
+  transform: scale(0.9);
 }
 
 .memoryConfirmContent {

@@ -11,6 +11,7 @@
   gap: 14px;
   position: relative;
   padding: 6px 0;
+  animation: slideInFromBottom 0.3s ease-out both;
 }
 
 .tlConversation {
@@ -169,8 +170,20 @@
 
 .tlStageBody {
   border-top: 1px solid var(--tl-stage-divider);
-  padding: 8px 10px 10px;
   background: rgba(0, 0, 0, 0.14);
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--transition-normal);
+}
+
+.tlStageShell[open] > .tlStageBody {
+  grid-template-rows: 1fr;
+}
+
+.tlStageBodyInner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 10px 10px;
 }
 
 .tlFailed .tlStageBody {

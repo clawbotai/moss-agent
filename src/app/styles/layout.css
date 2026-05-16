@@ -79,6 +79,11 @@
 .projectBadge svg:last-child {
   margin-left: 2px;
   opacity: 0.5;
+  transition: transform var(--transition-fast);
+}
+
+.projectBadge.chevronOpen svg:last-child {
+  transform: rotate(180deg);
 }
 
 .topStatus {
@@ -178,6 +183,8 @@
   box-shadow: var(--shadow-lg);
   min-width: 200px;
   padding: 4px;
+  animation: scaleDown var(--transition-fast) ease-out both;
+  transform-origin: top left;
 }
 
 /* Topbar Left */

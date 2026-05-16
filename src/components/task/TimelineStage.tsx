@@ -80,32 +80,34 @@ export function TimelineStage({
             <ChevronDown className="tlChevron" size={14} />
           </summary>
           <div className="tlStageBody">
-            {showBody && (
-              <div className="tlStageText">
-                {displayText ? <MarkdownBlock content={displayText} /> : <p>{stageFallbackText(stage)}</p>}
-              </div>
-            )}
-            {(stage.inputSummary || logs.length > 0) && (
-              <details className="tlDebugDetails">
-                <summary>
-                  <TerminalSquare size={13} />
-                  调试详情
-                  {logs.length > 0 && <span>{logs.length} 条日志</span>}
-                </summary>
-                {stage.inputSummary && (
-                  <div className="tlDebugBlock">
-                    <strong>输入摘要</strong>
-                    <pre>{stage.inputSummary}</pre>
-                  </div>
-                )}
-                {logs.length > 0 && <LogList logs={logs} />}
-              </details>
-            )}
-            {stage.errorMessage && (
-              <div className="inlineWarning">
-                <strong>{stage.errorMessage}</strong>
-              </div>
-            )}
+            <div className="tlStageBodyInner">
+              {showBody && (
+                <div className="tlStageText">
+                  {displayText ? <MarkdownBlock content={displayText} /> : <p>{stageFallbackText(stage)}</p>}
+                </div>
+              )}
+              {(stage.inputSummary || logs.length > 0) && (
+                <details className="tlDebugDetails">
+                  <summary>
+                    <TerminalSquare size={13} />
+                    调试详情
+                    {logs.length > 0 && <span>{logs.length} 条日志</span>}
+                  </summary>
+                  {stage.inputSummary && (
+                    <div className="tlDebugBlock">
+                      <strong>输入摘要</strong>
+                      <pre>{stage.inputSummary}</pre>
+                    </div>
+                  )}
+                  {logs.length > 0 && <LogList logs={logs} />}
+                </details>
+              )}
+              {stage.errorMessage && (
+                <div className="inlineWarning">
+                  <strong>{stage.errorMessage}</strong>
+                </div>
+              )}
+            </div>
           </div>
         </details>
       </div>

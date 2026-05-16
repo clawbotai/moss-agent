@@ -332,7 +332,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           <div className="topbarLeft">
             <button
               ref={projectBadgeRef}
-              className="projectBadge"
+              className={`projectBadge${showProjectDropdown ? " chevronOpen" : ""}`}
               type="button"
               onClick={() => {
                 setShowProjectDropdown((v) => !v);
