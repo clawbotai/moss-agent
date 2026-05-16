@@ -15,6 +15,7 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - 修复设置面板切换项目时旧项目数据残留问题：加载开始时清空 settings 和 memories 状态
 
 ### Changed
+- 设置面板默认选中通用模块，导航菜单通用排在记忆之前。
 - 记忆设置从 Composer 任务级选择器迁移到 Topbar 项目级设置面板，新任务默认 `memoryMode=auto`，系统根据项目设置自动决定记忆注入和提取行为。
 - 设置面板重构为左侧导航+右侧内容的分栏布局，支持多模块扩展（记忆、通用等）。
 - Composer 移除记忆模式选择器，减少用户创建任务前的决策负担。
@@ -26,6 +27,7 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - 任务详情移除顶部 detailHeader，让对话时间线直接作为详情主体展示
 
 ### Added
+- 交互微动画：Popover 缩放入场、设置面板遮罩渐显+滑入、Toggle 弹性缓动、Timeline 展开/折叠平滑过渡、按钮按压反馈、下拉箭头旋转、状态点平滑过渡、记忆项入场动画
 - 任务详情支持会话式展示，用户问题和 Moss 交付回答作为主线，幕后协作默认收起
 - 任务详情支持按执行时间线展示追加消息，用户补充会跟随当前任务进度显示在后续位置
 - 上下文与记忆系统设计方案文档（`docs/context-memory-design.md`），对齐 think.md 设计原则
