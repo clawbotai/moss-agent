@@ -5,6 +5,7 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 ### Fixed
+- 修复进行中任务（queued/running/waiting/stuck）仍显示阶段回答的问题，以及简化用户输入标签为 "User"
 - 修复当前任务追加说明后只保存不执行的问题：已结束任务会在原任务内追加后续执行阶段并重新入队。
 - 修复当前任务下点击发送会创建派生任务的问题，改为追加消息到当前任务。
 - 修复 code review 发现的问题：messages 路由 catch 块静默吞错改为 console.warn、scheduler 单例守卫简化为存在性检查、workbench projectId 同步 effect 补充设计意图注释

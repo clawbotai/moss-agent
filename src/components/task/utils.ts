@@ -7,6 +7,13 @@ import type {
   DerivedLogKind,
 } from "./types";
 
+const STAGE_ANSWER_SUPPRESSED_TASK_STATUSES = new Set<TaskWithRelations["status"]>([
+  "queued",
+  "running",
+  "waiting",
+  "stuck",
+]);
+
 export function isKeyLog(log: TaskLog) {
   if (log.level === "warn" || log.level === "error") return true;
   return /任务开始|任务完成|阶段开始|阶段完成|可能卡住|取消|重试|切换|无法执行|执行失败/.test(log.message);
@@ -199,6 +206,10 @@ function buildStageAnswer(
   fallbackAt: number,
   terminalAt: number,
 ): AnswerEntry | null {
+  if (STAGE_ANSWER_SUPPRESSED_TASK_STATUSES.has(task.status)) {
+    return null;
+  }
+
   const completedStages = task.stages.filter((stage) => {
     if (stage.role === "summarize") return false;
     if (stage.status !== "completed") return false;

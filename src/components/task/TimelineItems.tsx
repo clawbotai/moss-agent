@@ -155,7 +155,7 @@ export function TimelinePrompt({
       </div>
       <div className="tlContent">
         <div className="tlHead tlMessageHead">
-          <strong>用户输入任务</strong>
+          <strong>User</strong>
           <time>{new Date(createdAt).toLocaleString()}</time>
           {includeInContext && <span className="tlContextBadge">进入上下文</span>}
         </div>
