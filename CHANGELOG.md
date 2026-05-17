@@ -5,6 +5,7 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 ### Fixed
+- 修复 Codex 输出摘要提取错误的问题：Codex CLI 的 JSON 输出中 `item.completed` 事件包含 `item.text` 字段，但摘要提取函数未解析此字段，导致 fallback 到 stderr 的 "Reading additional input from stdin..."
 - 修复进行中任务（queued/running/waiting/stuck）仍显示 Moss 回答的问题：最后一个对话轮次的阶段回答和 agent 消息均在任务完成后才展示，简化用户输入标签为 "User"
 - 修复当前任务追加说明后只保存不执行的问题：已结束任务会在原任务内追加后续执行阶段并重新入队。
 - 修复当前任务下点击发送会创建派生任务的问题，改为追加消息到当前任务。

@@ -169,8 +169,8 @@ export function TimelinePrompt({
 
 const ANSWER_SOURCE_LABEL: Record<AnswerEntrySource, string> = {
   "agent-message": "Moss Agent",
-  "stage-summary": "Moss 交付摘要",
-  "task-summary": "Moss 交付摘要",
+  "stage-summary": "Moss Agent",
+  "task-summary": "Moss Agent",
 };
 
 export function TimelineMossAnswer({ answer }: { answer: AnswerEntry }) {
