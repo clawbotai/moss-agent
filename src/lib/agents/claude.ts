@@ -1,5 +1,7 @@
-import type { AgentAdapter, AgentRunContext } from "@/lib/agents/types";
+import type { AgentAdapter, AgentRunContext, AgentRunResult } from "@/lib/agents/types";
 import { commandExists, runProcess } from "@/lib/agents/process";
+
+const CLAUDE_TIMEOUT_MS = Number(process.env.MOSS_CLAUDE_TIMEOUT_MS) || 20 * 60 * 1000; // 20 分钟
 
 function claudeBin() {
   return process.env.MOSS_CLAUDE_BIN || "claude";
@@ -13,25 +15,65 @@ function permissionMode(permission: AgentRunContext["permission"]) {
 
 // 清理用户输入，防止 prompt 注入
 function sanitizeUserInput(input: string): string {
-  // 移除潜在的指令注入模式
   return input
     .replace(/\b(ignore|disregard|forget)\s+(previous|above|all)\s+(instructions?|prompts?|rules?)\b/gi, '[FILTERED]')
     .replace(/\b(you\s+are\s+now|act\s+as|pretend\s+to\s+be|new\s+instructions?)\b/gi, '[FILTERED]')
     .replace(/\b(system|assistant|user)\s*:\s*/gi, '[FILTERED]:')
-    .slice(0, 50000); // 限制最大长度
+    .slice(0, 50000);
 }
 
 function buildPrompt(role: string, context: AgentRunContext) {
-  return [
+  const parts = [
     `你是协作调度平台中的 Claude Code ${role} agent。`,
     "请复用本机 Claude Code 配置和可用子 agent 能力。",
     "输出必须包含结论、关键理由、下一步建议。",
     `预算档位：${context.budget}`,
-    "",
-    "=== 用户任务开始 ===",
-    sanitizeUserInput(context.prompt),
-    "=== 用户任务结束 ===",
-  ].join("\n");
+  ];
+
+  // 恢复执行说明
+  const attempt = context.attempt ?? 1;
+  if (attempt > 1) {
+    parts.push("");
+    parts.push(`⚠️ 这是第 ${attempt} 次执行此阶段（上次因超时被终止）。`);
+    parts.push("请先读取以下恢复上下文，了解已完成内容和当前工作区状态。");
+    parts.push("已完成的内容不要重做；继续完成未交付部分。");
+  }
+
+  if (context.resumeHint) {
+    parts.push("");
+    parts.push("=== 恢复上下文 ===");
+    parts.push(context.resumeHint);
+    parts.push("=== 恢复上下文结束 ===");
+  }
+
+  parts.push("");
+  parts.push("=== 用户任务开始 ===");
+  parts.push(sanitizeUserInput(context.prompt));
+  parts.push("=== 用户任务结束 ===");
+
+  return parts.join("\n");
+}
+
+async function executeWithResult(context: AgentRunContext, role: string): Promise<AgentRunResult> {
+  const result = await runProcess({
+    command: claudeBin(),
+    args: ["-p", buildPrompt(role, context), "--permission-mode", permissionMode(context.permission)],
+    cwd: context.projectPath,
+    timeoutMs: context.timeoutMs ?? CLAUDE_TIMEOUT_MS,
+    signal: context.signal,
+    onStdout: (chunk) => context.onLog(chunk),
+    onStderr: (chunk) => context.onLog(chunk, { stream: "stderr" }),
+  });
+
+  const summary = result.stdout.trim() || result.stderr.trim() || "Claude Code 执行结束";
+  return {
+    ok: result.exitCode === 0 && !result.timedOut,
+    summary,
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+    aborted: result.aborted,
+    signal: result.signal,
+  };
 }
 
 export const claudeAdapter: AgentAdapter = {
@@ -54,30 +96,10 @@ export const claudeAdapter: AgentAdapter = {
   },
 
   async run(context) {
-    const result = await runProcess({
-      command: claudeBin(),
-      args: ["-p", buildPrompt("执行", context), "--permission-mode", permissionMode(context.permission)],
-      cwd: context.projectPath,
-      signal: context.signal,
-      onStdout: (chunk) => context.onLog(chunk),
-      onStderr: (chunk) => context.onLog(chunk, { stream: "stderr" }),
-    });
-
-    const summary = result.stdout.trim() || result.stderr.trim() || "Claude Code 执行结束";
-    return { ok: result.exitCode === 0, summary, exitCode: result.exitCode };
+    return executeWithResult(context, "执行");
   },
 
   async review(context) {
-    const result = await runProcess({
-      command: claudeBin(),
-      args: ["-p", buildPrompt("审查", context), "--permission-mode", permissionMode(context.permission)],
-      cwd: context.projectPath,
-      signal: context.signal,
-      onStdout: (chunk) => context.onLog(chunk),
-      onStderr: (chunk) => context.onLog(chunk, { stream: "stderr" }),
-    });
-
-    const summary = result.stdout.trim() || result.stderr.trim() || "Claude Code 审查结束";
-    return { ok: result.exitCode === 0, summary, exitCode: result.exitCode };
+    return executeWithResult(context, "审查");
   },
 };
