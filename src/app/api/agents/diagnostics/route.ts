@@ -8,6 +8,7 @@ export async function GET() {
   try {
     const agents = await detectAgents();
     const packageManagers = await detectPackageManagers();
+    // TODO: 未来可扩展返回运行时配置（如 MAX_STAGE_ATTEMPTS、超时设置等）
     return jsonOk({ agents, packageManagers });
   } catch (error) {
     return jsonError(error);

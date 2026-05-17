@@ -1,4 +1,4 @@
-import type { TaskLog, TaskMessage, TaskStage, TaskWithRelations } from "@/lib/types";
+import type { TaskMessage, TaskStage, TaskWithRelations } from "@/lib/types";
 
 export interface TaskDetailProps {
   task: TaskWithRelations | null;

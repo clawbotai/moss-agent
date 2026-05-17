@@ -15,7 +15,7 @@ import {
   Search,
   Settings,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   AgentDiagnostic,
@@ -107,7 +107,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     };
   }, []);
 
-  const { taskDetails, setTaskDetails } = useTaskEvents(selectedTaskId || null, (updatedTask) => {
+  const handleTaskUpdate = useCallback((updatedTask: TaskWithRelations) => {
     setTasks((current) =>
       current.map((task) =>
         task.id === updatedTask.id
@@ -115,7 +115,9 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           : task
       )
     );
-  });
+  }, []);
+
+  const { taskDetails, setTaskDetails } = useTaskEvents(selectedTaskId || null, handleTaskUpdate);
 
   // 合并 taskDetails 与乐观数据用于渲染（乐观数据不受 SSE 影响）
   const mergedTaskDetails = useMemo<TaskWithRelations | null>(() => {
@@ -134,18 +136,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const codex = diagnostics?.agents.find((agent) => agent.id === "codex");
   const claude = diagnostics?.agents.find((agent) => agent.id === "claude");
 
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  // 派生任务可能属于不同项目，自动同步侧边栏选中的项目
-  useEffect(() => {
-    if (taskDetails?.projectId) {
-      setSelectedProjectId(taskDetails.projectId);
-    }
-  }, [taskDetails?.projectId]);
-
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const [projectsResponse, tasksResponse, diagnosticsResponse] = await Promise.all([
       fetch("/api/projects"),
       fetch("/api/tasks"),
@@ -157,15 +148,13 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setProjects(projectsData.projects);
     setTasks(tasksData.tasks);
     setDiagnostics(diagnosticsData);
-    setSelectedProjectId((current) => current || projectsData.projects[0]?.id || "");
-  }
+    const selectedTask = tasksData.tasks.find((task) => task.id === selectedTaskId);
+    setSelectedProjectId((current) => selectedTask?.projectId || current || projectsData.projects[0]?.id || "");
+  }, [selectedTaskId]);
 
-  async function fetchTask(taskId: string) {
-    const response = await fetch(`/api/tasks/${taskId}`);
-    if (!response.ok) return;
-    const data = (await response.json()) as { task: TaskWithRelations };
-    setTaskDetails(data.task);
-  }
+  useEffect(() => {
+    void Promise.resolve().then(refresh);
+  }, [refresh]);
 
   async function createProject(event: FormEvent) {
     event.preventDefault();
@@ -316,6 +305,15 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setOptimisticStages([]);
   }
 
+  function selectTask(taskId: string) {
+    const task = tasks.find((item) => item.id === taskId);
+    if (task) setSelectedProjectId(task.projectId);
+    setSelectedTaskId(taskId);
+    setError("");
+    setOptimisticMessages([]);
+    setOptimisticStages([]);
+  }
+
   return (
     <main className="shell">
       <ProjectSidebar
@@ -323,7 +321,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
         selectedProjectId={selectedProjectId}
         selectedTaskId={selectedTaskId}
         filter={filter}
-        onSelectTask={setSelectedTaskId}
+        onSelectTask={selectTask}
         onFilterChange={setFilter}
       />
 

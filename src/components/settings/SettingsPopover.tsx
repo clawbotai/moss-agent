@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { X } from "lucide-react";
 import { Popover } from "@/components/common/Popover";
@@ -24,39 +24,45 @@ export function SettingsPopover({ projectId, open, onClose, triggerRef }: Settin
   const [memories, setMemories] = useState<ProjectMemory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const pendingRef = useRef(false);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     if (!open || !projectId) return;
 
     let cancelled = false;
-    setLoading(true);
-    setError("");
-    setSettings(null);
-    setMemories([]);
 
-    Promise.all([
-      fetch(`/api/projects/${projectId}/settings`).then(async (response) => {
-        if (!response.ok) throw new Error("加载设置失败");
-        return response.json();
-      }),
-      fetch(`/api/projects/${projectId}/memory?status=confirmed`).then(async (response) => {
-        if (!response.ok) throw new Error("加载记忆失败");
-        return response.json();
-      }),
-    ])
-      .then(([settingsData, memoryData]) => {
+    async function loadSettings() {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      setLoading(true);
+      setError("");
+      setSettings(null);
+      setMemories([]);
+
+      try {
+        const [settingsData, memoryData] = await Promise.all([
+          fetch(`/api/projects/${projectId}/settings`).then(async (response) => {
+            if (!response.ok) throw new Error("加载设置失败");
+            return response.json();
+          }),
+          fetch(`/api/projects/${projectId}/memory?status=confirmed`).then(async (response) => {
+            if (!response.ok) throw new Error("加载记忆失败");
+            return response.json();
+          }),
+        ]);
         if (cancelled) return;
         setSettings((settingsData as { settings: ProjectSettings }).settings);
         setMemories((memoryData as { memories: ProjectMemory[] }).memories || []);
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return;
         setError("加载设置失败");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    }
+
+    void loadSettings();
 
     return () => {
       cancelled = true;
@@ -64,8 +70,8 @@ export function SettingsPopover({ projectId, open, onClose, triggerRef }: Settin
   }, [open, projectId]);
 
   async function handleToggle(field: "memoryInjectEnabled" | "memoryExtractEnabled", next: boolean) {
-    if (!settings || pendingRef.current) return;
-    pendingRef.current = true;
+    if (!settings || pending) return;
+    setPending(true);
 
     const prev = settings[field];
     setSettings({ ...settings, [field]: next });
@@ -86,7 +92,7 @@ export function SettingsPopover({ projectId, open, onClose, triggerRef }: Settin
       setSettings({ ...settings, [field]: prev });
       setError("设置更新失败，已回滚");
     } finally {
-      pendingRef.current = false;
+      setPending(false);
     }
   }
 
@@ -129,12 +135,12 @@ export function SettingsPopover({ projectId, open, onClose, triggerRef }: Settin
                 memories={memories}
                 onToggle={handleToggle}
                 onDeleteMemory={handleDeleteMemory}
-                pending={pendingRef.current}
+                pending={pending}
               />
             )}
 
             {!loading && activeModule === "general" && (
-              <GeneralSettings projectId={projectId} />
+              <GeneralSettings />
             )}
           </div>
         </div>

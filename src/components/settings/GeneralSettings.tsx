@@ -1,10 +1,4 @@
-"use client";
-
-interface GeneralSettingsProps {
-  projectId: string;
-}
-
-export function GeneralSettings({ projectId: _projectId }: GeneralSettingsProps) {
+export function GeneralSettings() {
   return (
     <div className="settingsModule">
       <div className="settingsModuleHeader">

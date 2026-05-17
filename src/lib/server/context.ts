@@ -2,8 +2,7 @@ import { createContextSnapshot, getTaskWithRelations, getTaskDeriveOptions, getP
 import { searchProjectMemory } from "@/lib/server/memory";
 import { generateChangeScope } from "@/lib/server/changes";
 import type { ChangeScope } from "@/lib/server/changes";
-import { DERIVE_OPTIONS_DEFAULTS } from "@/lib/types";
-import type { DeriveOptions, MemoryMode, StageRole, TaskStage, TaskWithRelations } from "@/lib/types";
+import type { MemoryMode, StageRole, TaskStage, TaskWithRelations } from "@/lib/types";
 
 type MemorySectionResult = {
   content: string;
@@ -62,6 +61,9 @@ export async function buildContextPackage(
   let changeScopeContent = "";
   if (quotas.changes > 0 && task.project?.path) {
     const changeScope = await generateChangeScope(task.project.path);
+    if (!changeScope) {
+      console.warn(`[MOSS:context] generateChangeScope 返回 null，项目路径: ${task.project.path}`);
+    }
     changeScopeContent = changesSection(changeScope, quotas.changes);
   }
 

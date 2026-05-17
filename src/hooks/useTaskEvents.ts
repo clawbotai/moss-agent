@@ -15,7 +15,6 @@ export function useTaskEvents(
 
   useEffect(() => {
     if (!selectedTaskId) {
-      setTaskDetails(null);
       return;
     }
 
@@ -90,7 +89,7 @@ export function useTaskEvents(
       closed = true;
       source.close();
     };
-  }, [selectedTaskId]);
+  }, [selectedTaskId, onTaskUpdate]);
 
-  return { taskDetails, setTaskDetails };
+  return { taskDetails: selectedTaskId ? taskDetails : null, setTaskDetails };
 }
