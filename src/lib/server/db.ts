@@ -14,12 +14,9 @@ import type {
   CreateTaskInput,
   DeriveOptions,
   LogLevel,
-  MemoryCategory,
   MemoryMode,
-  MemoryStatus,
   PermissionLevel,
   Project,
-  ProjectMemory,
   ProjectSettings,
   StageStatus,
   Task,
@@ -42,6 +39,26 @@ type DbMessageRow = Omit<TaskMessage, "includeInContext"> & { includeInContext: 
 type DbContextSnapshotRow = TaskContextSnapshot;
 
 let db: Database.Database | null = null;
+
+// 状态转换矩阵：key 是当前状态，value 是允许的目标状态集合
+const VALID_TASK_TRANSITIONS: Record<TaskStatus, Set<TaskStatus>> = {
+  queued: new Set(["running", "cancelled"]),
+  running: new Set(["completed", "failed", "cancelled", "stuck", "waiting"]),
+  stuck: new Set(["running", "failed", "cancelled"]),
+  waiting: new Set(["running", "cancelled", "failed", "stuck"]), // waiting 也可以进入 stuck（超时）
+  failed: new Set(["queued"]), // 只能通过 retry 回到 queued
+  cancelled: new Set(["queued"]), // 只能通过 retry 回到 queued
+  completed: new Set<TaskStatus>(), // 终态，不可转换
+};
+
+const VALID_STAGE_TRANSITIONS: Record<StageStatus, Set<StageStatus>> = {
+  queued: new Set(["running", "skipped", "cancelled"]),
+  running: new Set(["completed", "failed", "cancelled"]),
+  completed: new Set<StageStatus>(), // 终态
+  failed: new Set<StageStatus>(), // 终态
+  skipped: new Set<StageStatus>(), // 终态
+  cancelled: new Set<StageStatus>(), // 终态
+};
 
 function getDataDir() {
   return process.env.MOSS_DATA_DIR || path.join(process.cwd(), ".moss-agent");
@@ -472,6 +489,16 @@ export function updateTaskStatus(
 ) {
   const current = getTask(taskId);
   if (!current) return;
+
+  // 状态转换校验（允许相同状态的幂等更新）
+  if (current.status !== status) {
+    const allowed = VALID_TASK_TRANSITIONS[current.status];
+    if (!allowed?.has(status)) {
+      // TODO: 观察一段时间后，如果没有误报，改为 throw
+      console.warn(`[MOSS] 非法状态转换: ${current.status} -> ${status} (task: ${taskId})`);
+    }
+  }
+
   const next = {
     currentStage: Object.hasOwn(updates, "currentStage") ? updates.currentStage ?? null : current.currentStage,
     summary: Object.hasOwn(updates, "summary") ? updates.summary ?? null : current.summary,
@@ -559,6 +586,14 @@ export function updateStage(
     | DbStageRow
     | undefined;
   if (!current) return;
+
+  // 状态转换校验
+  if (updates.status && updates.status !== current.status) {
+    const allowed = VALID_STAGE_TRANSITIONS[current.status];
+    if (!allowed?.has(updates.status)) {
+      console.warn(`[MOSS] 非法阶段状态转换: ${current.status} -> ${updates.status} (stage: ${stageId})`);
+    }
+  }
 
   getDb()
     .prepare(
@@ -846,6 +881,26 @@ export function listAgentRuns(taskId: string): AgentRun[] {
   return getDb()
     .prepare("SELECT * FROM agent_runs WHERE taskId = ? ORDER BY startedAt ASC")
     .all(taskId) as AgentRun[];
+}
+
+/**
+ * 获取指定 stage 的最近 agent_run 摘要（用于恢复上下文）
+ */
+export function getLatestAgentRunForStage(stageId: string): AgentRun | null {
+  return (
+    (getDb()
+      .prepare("SELECT * FROM agent_runs WHERE stageId = ? ORDER BY startedAt DESC LIMIT 1")
+      .get(stageId) as AgentRun | undefined) || null
+  );
+}
+
+/**
+ * 获取服务重启后需要恢复的任务（status 为 running/stuck/waiting）
+ */
+export function getRecoverableTasks(): Task[] {
+  return getDb()
+    .prepare("SELECT * FROM tasks WHERE status IN ('running', 'stuck', 'waiting')")
+    .all() as Task[];
 }
 
 // ─── Agent Message CRUD ──────────────────────────────────
