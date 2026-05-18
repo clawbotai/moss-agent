@@ -69,6 +69,19 @@ const quickStarts = [
   },
 ];
 
+function optimisticContinuationStage(mode: TaskMode): Pick<TaskStage, "agent" | "role" | "name"> {
+  if (mode === "codexOnly") {
+    return { agent: "codex", role: "implement", name: "追加任务：Codex 直接开发" };
+  }
+  if (mode === "claudeOnly") {
+    return { agent: "claude", role: "implement", name: "追加任务：Claude Code 直接开发" };
+  }
+  if (mode === "custom") {
+    return { agent: "custom", role: "implement", name: "追加任务：自定义 agent 执行" };
+  }
+  return { agent: "claude", role: "plan", name: "追加任务：Claude Code 生成计划" };
+}
+
 export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?: string; initialProjectId?: string } = {}) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -231,12 +244,13 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
       includeInContext: true,
       createdAt: now,
     }]);
+    const optimisticStage = optimisticContinuationStage(mode);
     setOptimisticStages([{
       id: `optimistic-stage-${optimisticId}`,
       taskId: selectedTaskId,
-      name: "追加任务中…",
-      agent: "claude",
-      role: "plan",
+      name: optimisticStage.name,
+      agent: optimisticStage.agent,
+      role: optimisticStage.role,
       status: "running",
       inputSummary: null,
       outputSummary: null,
@@ -259,6 +273,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
         body: JSON.stringify({
           content: promptText,
           includeInContext: true,
+          mode,
         }),
       });
       const data = (await response.json()) as { task?: TaskWithRelations; error?: string };
@@ -292,6 +307,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setTaskDetails(null);
     setPrompt("");
     setError("");
+    setMode("collaborative");
     setOptimisticMessages([]);
     setOptimisticStages([]);
   }
@@ -301,6 +317,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setSelectedTaskId("");
     setTaskDetails(null);
     setError("");
+    setMode("collaborative");
     setOptimisticMessages([]);
     setOptimisticStages([]);
   }

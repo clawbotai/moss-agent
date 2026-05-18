@@ -31,6 +31,7 @@ export const projectSettingsSchema = z
 export const createTaskMessageSchema = z.object({
   content: z.string().trim().min(1).max(12000),
   includeInContext: z.boolean().optional(),
+  mode: z.enum(["collaborative", "codexOnly", "claudeOnly", "custom"]).optional(),
 });
 
 export const switchAgentSchema = z.object({

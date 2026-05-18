@@ -56,6 +56,12 @@ export function buildStagePrompt(
   previousSummaries: string[],
   contextPackage: string,
 ) {
+  // 单阶段模式（codexOnly/claudeOnly）且无前序阶段时，直接使用用户指令，跳过冗余上下文
+  const isSimpleMode = task.mode === "codexOnly" || task.mode === "claudeOnly" || task.mode === "custom";
+  if (isSimpleMode && previousSummaries.length === 0 && stage.role === "implement") {
+    return task.prompt;
+  }
+
   const context = previousSummaries.length
     ? `已有阶段摘要：\n${previousSummaries.map((item, index) => `${index + 1}. ${item}`).join("\n")}`
     : "当前没有已有阶段摘要。";

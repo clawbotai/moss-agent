@@ -29,7 +29,7 @@ export async function POST(request: Request, context: RouteContext) {
       includeInContext: input.includeInContext,
     });
     try {
-      getScheduler().continueAfterMessage(taskId);
+      getScheduler().continueAfterMessage(taskId, input.mode);
     } catch (notifyError) {
       console.warn("追加任务调度失败，前端将通过响应刷新", notifyError);
     }

@@ -5,6 +5,10 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 ### Fixed
+- 修复简单任务（codexOnly/claudeOnly）上下文过重的问题：单阶段任务首次执行时直接使用用户指令，跳过冗余的上下文包构建（阶段摘要、交付摘要等），避免 token 浪费
+- 修复新开任务/切换项目时协作模式未重置的问题：点"新开任务"或切换项目后 mode 回到默认的 collaborative，避免沿用上一个任务的 codexOnly/claudeOnly 设置
+- 修复追加任务时切换模式不生效的问题：追加消息时将当前 Composer 选中的 mode 传给后端，后端使用新模式构建执行阶段，而非沿用任务原始模式
+- 修复运行中任务切换模式被静默忽略的问题：新增 `pendingMode` 字段，任务运行中切换模式时保存待生效模式，任务完成后再次追加时自动应用
 - 修复 Codex 输出摘要提取错误的问题：Codex CLI 的 JSON 输出中 `item.completed` 事件包含 `item.text` 字段，但摘要提取函数未解析此字段，导致 fallback 到 stderr 的 "Reading additional input from stdin..."
 - 修复进行中任务（queued/running/waiting/stuck）仍显示 Moss 回答的问题：最后一个对话轮次的阶段回答和 agent 消息均在任务完成后才展示，简化用户输入标签为 "User"
 - 修复当前任务追加说明后只保存不执行的问题：已结束任务会在原任务内追加后续执行阶段并重新入队。

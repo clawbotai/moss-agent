@@ -15,12 +15,14 @@ import {
   createArtifact,
   getLatestAgentRunForStage,
   getRecoverableTasks,
+  setPendingMode,
+  applyTaskMode,
 } from "@/lib/server/db";
 import { extractMemoryFromTask } from "@/lib/server/memory";
 import { buildContextPackage, saveContextSnapshot } from "@/lib/server/context";
 import { nowIso } from "@/lib/server/time";
 import { buildStagePrompt, buildWorkflow } from "@/lib/server/workflows";
-import type { AgentRun, ArtifactType, LogLevel, StageStatus, TaskLog, TaskStage } from "@/lib/types";
+import type { AgentRun, ArtifactType, LogLevel, StageStatus, TaskLog, TaskMode, TaskStage } from "@/lib/types";
 import type { AgentRunResult } from "@/lib/agents/types";
 import { getAgent } from "@/lib/agents/registry";
 
@@ -112,12 +114,24 @@ class TaskScheduler {
     this.emitTask(taskId);
   }
 
-  continueAfterMessage(taskId: string) {
+  continueAfterMessage(taskId: string, modeOverride?: TaskMode) {
     const task = getTask(taskId);
     if (!task) throw new Error("任务不存在");
 
+    // 任务正在运行：保存待生效模式，等当前执行完成后再应用
     if (this.runningTasks.has(taskId) || ["queued", "running", "stuck", "waiting"].includes(task.status)) {
-      this.log(taskId, "info", "已收到追加说明，当前任务执行中，后续阶段会带入该补充。");
+      if (modeOverride && modeOverride !== task.mode) {
+        // 用户明确指定了新模式，记录为待生效
+        setPendingMode(taskId, modeOverride);
+        this.log(taskId, "info", `已记录模式切换（${task.mode} → ${modeOverride}），当前任务执行完成后自动应用。`);
+      } else if (modeOverride && task.pendingMode) {
+        // 用户传入的 mode 与当前任务 mode 相同，说明用户可能切换回了默认模式，
+        // 此时取消之前记录的待生效模式切换
+        setPendingMode(taskId, null);
+        this.log(taskId, "info", `已取消之前记录的模式切换，继续使用当前模式：${task.mode}`);
+      } else {
+        this.log(taskId, "info", "已收到追加说明，当前任务执行中，后续阶段会带入该补充。");
+      }
       this.emitTask(taskId);
       return;
     }
@@ -130,18 +144,29 @@ class TaskScheduler {
       return;
     }
 
+    // 确定实际使用的模式：显式传入 > 待生效模式 > 任务原始模式
+    const pendingMode = task.pendingMode;
+    const effectiveMode = modeOverride || pendingMode || task.mode;
+    if (effectiveMode !== task.mode || pendingMode) {
+      applyTaskMode(taskId, effectiveMode);
+    }
+    const effectiveTask = { ...task, mode: effectiveMode, pendingMode: null };
+
     const existingStages = listStages(taskId);
     const nextOrderIndex = existingStages.reduce(
       (max, stage) => Math.max(max, stage.orderIndex),
       -1,
     ) + 1;
-    const continuationStages = buildWorkflow(task).map((stage, index) => ({
+    const continuationStages = buildWorkflow(effectiveTask).map((stage, index) => ({
       ...stage,
       name: `追加任务：${stage.name}`,
       orderIndex: nextOrderIndex + index,
     }));
 
     createStages(taskId, continuationStages);
+    if (effectiveMode !== task.mode) {
+      this.log(taskId, "info", `追加任务切换模式：${task.mode} → ${effectiveMode}`);
+    }
     updateTaskStatus(taskId, "queued", {
       currentStage: "等待追加任务执行",
       errorMessage: null,
@@ -367,19 +392,32 @@ class TaskScheduler {
     if (!task) throw new Error("任务不存在");
 
     const startedAt = nowIso();
-    const contextPackage = await buildContextPackage(taskId, { stageId: stage.id });
-    saveContextSnapshot(taskId, stage.id, contextPackage);
-    const prompt = buildStagePrompt(task, stage, previousSummaries, contextPackage.content);
-    updateStage(stage.id, {
-      status: "running",
-      startedAt,
-      inputSummary: [
+    const isSimpleFirstStage = (task.mode === "codexOnly" || task.mode === "claudeOnly" || task.mode === "custom")
+      && previousSummaries.length === 0 && stage.role === "implement";
+
+    let prompt: string;
+    let inputSummary: string;
+
+    if (isSimpleFirstStage) {
+      prompt = task.prompt;
+      inputSummary = `attempt: ${attempt}\n${prompt.slice(0, 900)}`;
+    } else {
+      const contextPackage = await buildContextPackage(taskId, { stageId: stage.id });
+      saveContextSnapshot(taskId, stage.id, contextPackage);
+      prompt = buildStagePrompt(task, stage, previousSummaries, contextPackage.content);
+      inputSummary = [
         `上下文策略：${contextPackage.policy}`,
         `记忆模式：${contextPackage.memoryMode}`,
         `预估 token：${contextPackage.tokenEstimate}`,
         `attempt: ${attempt}`,
         prompt.slice(0, 900),
-      ].join("\n"),
+      ].join("\n");
+    }
+
+    updateStage(stage.id, {
+      status: "running",
+      startedAt,
+      inputSummary,
     });
     updateTaskStatus(taskId, "running", { currentStage: stage.name });
     this.log(taskId, "info", `阶段开始：${stage.name}（attempt ${attempt}）`, { stageId: stage.id, agent: stage.agent });

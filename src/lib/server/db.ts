@@ -109,6 +109,7 @@ function migrate(database: Database.Database) {
       permission TEXT NOT NULL,
       memoryMode TEXT NOT NULL DEFAULT 'taskSummary',
       contextPolicy TEXT NOT NULL DEFAULT 'taskSummary',
+      pendingMode TEXT,
       status TEXT NOT NULL,
       currentStage TEXT,
       summary TEXT,
@@ -183,6 +184,7 @@ function migrate(database: Database.Database) {
   addColumnIfMissing(database, "tasks", "memoryMode", "TEXT NOT NULL DEFAULT 'taskSummary'");
   addColumnIfMissing(database, "tasks", "contextPolicy", "TEXT NOT NULL DEFAULT 'taskSummary'");
   addColumnIfMissing(database, "tasks", "deriveOptionsJson", "TEXT");
+  addColumnIfMissing(database, "tasks", "pendingMode", "TEXT");
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS artifacts (
@@ -406,6 +408,7 @@ export function createTask(input: CreateTaskInput): Task {
     permission: input.permission,
     memoryMode: input.memoryMode || "auto",
     contextPolicy: input.contextPolicy || "auto",
+    pendingMode: null,
     status: "queued",
     currentStage: null,
     summary: null,
@@ -533,6 +536,18 @@ export function updateTaskStatus(
       nowIso(),
       taskId,
     );
+}
+
+export function setPendingMode(taskId: string, mode: TaskMode | null) {
+  getDb()
+    .prepare("UPDATE tasks SET pendingMode = ?, updatedAt = ? WHERE id = ?")
+    .run(mode, nowIso(), taskId);
+}
+
+export function applyTaskMode(taskId: string, mode: TaskMode) {
+  getDb()
+    .prepare("UPDATE tasks SET pendingMode = NULL, mode = ?, updatedAt = ? WHERE id = ?")
+    .run(mode, nowIso(), taskId);
 }
 
 export function createStages(taskId: string, stages: Omit<TaskStage, "id" | "taskId">[]) {

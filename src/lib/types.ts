@@ -49,6 +49,7 @@ export interface Task {
   permission: PermissionLevel;
   memoryMode: MemoryMode;
   contextPolicy: string;
+  pendingMode: TaskMode | null;
   status: TaskStatus;
   currentStage: string | null;
   summary: string | null;
