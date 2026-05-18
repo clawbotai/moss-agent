@@ -59,6 +59,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
         {/* 确认对话框 */}
         {task.status === "waiting" && confirmationRequest && (
           <ConfirmationDialog
+            key={`${task.id}-${task.errorMessage ?? ""}`}
             confirmationRequest={confirmationRequest}
             onConfirm={confirm}
             onCancel={cancel}

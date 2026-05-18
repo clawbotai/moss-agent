@@ -14,6 +14,7 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - 调度器支持暂停任务等待用户确认，任务状态变为 "waiting"
   - 新增 `/api/tasks/[taskId]/confirm` API 端点处理用户确认回复
   - UI 新增 ConfirmationDialog 组件，支持选项选择和自由文本输入两种确认方式
+  - 确认对话框支持用户自定义回复：即使 agent 提供了选项，用户仍可选择"自定义回复"输入任意文本
   - 任务详情页自动检测等待确认状态并展示确认交互界面
   - 支持 ANSI 转义码清理，确保 CLI 输出检测准确性
   - 用户确认回复会写入当前任务消息并注入下一次 agent 恢复上下文，确保确认后能继续当前阶段
@@ -42,6 +43,9 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - `confirmAndContinue` 使用原子性 `confirmTaskToRunning` 防止并发确认竞态
   - 服务重启后确认回复上下文不丢失：`consumeConfirmationResumeHint` 增加数据库 fallback
   - ConfirmationDialog 选项添加 `:focus-within` 键盘焦点样式，textarea 添加 maxLength
+  - 智能检测误报率优化：意图关键词守卫 + 仅扫描末尾 30 行 + 收紧选项模式 + 统一主/备用检测关键词策略
+  - Codex 适配器确认检测跳过重复 JSON 解包（`skipJsonExtraction` 参数）
+  - `useTaskConfirmation` 使用 ref 模式避免 inline callback 导致 useCallback 重创建
 
 ### Changed
 - 设置面板默认选中通用模块，导航菜单通用排在记忆之前。

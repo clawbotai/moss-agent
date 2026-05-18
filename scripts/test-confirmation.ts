@@ -51,12 +51,6 @@ function testSmartQFormat() {
 - **B)** 在 moss-agent 平台内构建自有的 skill 注册/调度系统
 - **C)** 两者都要 - 先集成已有能力，再设计可扩展框架
 
-**Q2：skill 调用应该发生在工作流的哪个阶段？**
-- **A)** 任务开始前 - 预处理
-- **B)** 阶段之间 - 中间件
-- **C)** 任务完成后 - 后处理
-- **D)** 用户手动触发
-
 请告诉我你的选择。
 `;
 
@@ -73,29 +67,44 @@ function testDirectOptionsDoNotFalsePositive() {
 (C) 使用 Zustand
 `;
 
+  // "需求不明确，请选择实现方式：" 以冒号结尾而非问号，不匹配问题行模式；(A)/(B)/(C) 无前导问题不收集
   assert.equal(detectConfirmationRequest(output), undefined);
 }
 
-function testClaudeNumberedQuestion() {
+function testSmartNumberedQuestionWithIntent() {
   const output = `
 在给出方案前，需要明确以下边界：
 
 **1. 你的核心场景是什么？**
-- 用户在 Composer 输入 \`/skill-name\` 触发特定能力？
-- Agent 在执行过程中自动发现并调用合适的 skill？
-- 任务流程中某个阶段固定调用特定 skill？
+- **A)** 用户在 Composer 输入触发特定能力
+- **B)** Agent 在执行过程中自动发现并调用合适的 skill
+- **C)** 任务流程中某个阶段固定调用特定 skill
 
-**2. skill 的来源？**
-- 复用 Claude Code CLI 已有的 skill（如 \`/pdf\`、\`/docx\` 等）？
-- 自定义 skill（项目级别或用户级别）？
-- 两者都要？
-
-你先回答上面的问题，我再给出详细的实施计划。
+请回答上面的问题，我再给出详细的实施计划。
 `;
 
   const result = detectConfirmationRequest(output);
   assert.ok(result?.question.includes("核心场景"));
   assert.equal(result?.options?.length, 3);
+}
+
+function testSmartDetectionNoIntentKeywords() {
+  // LLM 正常分析输出：包含编号问题但没有意图关键词，不应触发
+  const output = `
+以下是性能优化建议：
+
+1. 为什么缓存命中率低？
+- 数据访问模式不均匀
+- 缓存策略配置不当
+
+2. 如何减少 GC 压力？
+- 减少对象创建频率
+- 使用对象池模式
+
+这些都是常见问题，可以逐步解决。
+`;
+
+  assert.equal(detectConfirmationRequest(output), undefined);
 }
 
 function testCodexJsonOutput() {
@@ -122,7 +131,8 @@ function main() {
   testNoConfirmation();
   testSmartQFormat();
   testDirectOptionsDoNotFalsePositive();
-  testClaudeNumberedQuestion();
+  testSmartNumberedQuestionWithIntent();
+  testSmartDetectionNoIntentKeywords();
   testCodexJsonOutput();
   console.log("确认请求检测测试通过");
 }

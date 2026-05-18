@@ -137,8 +137,10 @@ async function executeWithResult(
   const codexText = extractCodexTextSegments(result.stdout).join("\n");
   const summary = extractCodexSummary(result.stdout) || result.stderr.trim() || "Codex 执行结束";
 
-  // Codex 使用 JSON 事件输出，确认标记需要先从事件字段中解包再检测。
-  const confirmationRequest = detectConfirmationRequest(codexText || result.stdout);
+  const confirmationRequest = detectConfirmationRequest(
+    codexText || result.stdout,
+    Boolean(codexText), // codexText 已经是提取后的纯文本，跳过 JSON 解包
+  );
 
   return {
     ok: result.exitCode === 0 && !result.timedOut && !confirmationRequest,

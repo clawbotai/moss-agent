@@ -551,14 +551,63 @@ export function applyTaskMode(taskId: string, mode: TaskMode) {
 }
 
 /**
- * 原子性地将任务从 waiting 转为 running，返回是否成功。
- * 防止并发确认请求的 TOCTOU 竞态。
+ * 原子性地记录确认回复，并将任务从 waiting 转为 running。
+ * 防止并发确认请求和部分写入导致的状态不一致。
  */
-export function confirmTaskToRunning(taskId: string): boolean {
-  const result = getDb()
-    .prepare("UPDATE tasks SET status = 'running', errorMessage = NULL, updatedAt = ? WHERE id = ? AND status = 'waiting'")
-    .run(nowIso(), taskId);
-  return result.changes > 0;
+export function confirmTaskWithMessage(input: {
+  taskId: string;
+  content: string;
+}): TaskMessage | null {
+  const database = getDb();
+  const transaction = database.transaction(() => {
+    const now = nowIso();
+    const updateResult = database
+      .prepare("UPDATE tasks SET status = 'running', errorMessage = NULL, updatedAt = ? WHERE id = ? AND status = 'waiting'")
+      .run(now, input.taskId);
+
+    if (updateResult.changes === 0) return null;
+
+    const task = getTask(input.taskId);
+    if (!task) return null;
+
+    const message: TaskMessage = {
+      id: randomUUID(),
+      taskId: input.taskId,
+      role: "user",
+      content: input.content.trim(),
+      includeInContext: true,
+      createdAt: now,
+    };
+
+    database
+      .prepare(
+        `INSERT INTO task_messages (
+          id, taskId, role, content, includeInContext, createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        message.id,
+        message.taskId,
+        message.role,
+        message.content,
+        1,
+        message.createdAt,
+      );
+
+    database
+      .prepare("UPDATE tasks SET updatedAt = ?, contextPolicy = ? WHERE id = ?")
+      .run(
+        now,
+        task.contextPolicy.includes("selectedMessages")
+          ? task.contextPolicy
+          : `${task.contextPolicy}+selectedMessages`,
+        input.taskId,
+      );
+
+    return message;
+  });
+
+  return transaction();
 }
 
 export function createStages(taskId: string, stages: Omit<TaskStage, "id" | "taskId">[]) {

@@ -20,24 +20,40 @@ export function ConfirmationDialog({
   const [selectedOption, setSelectedOption] = useState<number | null>(
     confirmationRequest.defaultOption ?? null
   );
+  const [useCustomInput, setUseCustomInput] = useState(false);
   const [customInput, setCustomInput] = useState("");
   const options = confirmationRequest.options;
   const hasOptions = options && options.length > 0;
+
+  const handleSelectOption = useCallback((index: number) => {
+    setSelectedOption(index);
+    setUseCustomInput(false);
+  }, []);
+
+  const handleSelectCustom = useCallback(() => {
+    setUseCustomInput(true);
+    setSelectedOption(null);
+  }, []);
+
+  const canSubmit = useCustomInput
+    ? customInput.trim().length > 0
+    : selectedOption !== null;
 
   const handleSubmit = useCallback(() => {
     if (isSubmitting) return;
 
     let response: string;
-    if (options && selectedOption !== null) {
-      response = options[selectedOption];
-    } else if (customInput.trim()) {
+    if (useCustomInput) {
       response = customInput.trim();
+      if (!response) return;
+    } else if (options && selectedOption !== null) {
+      response = options[selectedOption];
     } else {
       return;
     }
 
     onConfirm(response);
-  }, [options, selectedOption, customInput, onConfirm, isSubmitting]);
+  }, [options, selectedOption, useCustomInput, customInput, onConfirm, isSubmitting]);
 
   return (
     <div className="confirmationPanel">
@@ -55,19 +71,44 @@ export function ConfirmationDialog({
           <div className="confirmationOptions">
             {options.map((option, index) => (
               <label
-                key={index}
-                className={`confirmationOption ${selectedOption === index ? "selected" : ""}`}
+                key={`${index}-${option.slice(0, 20)}`}
+                className={`confirmationOption ${!useCustomInput && selectedOption === index ? "selected" : ""}`}
               >
                 <input
                   type="radio"
                   name="confirmation-option"
-                  checked={selectedOption === index}
-                  onChange={() => setSelectedOption(index)}
+                  checked={!useCustomInput && selectedOption === index}
+                  onChange={() => handleSelectOption(index)}
                   disabled={isSubmitting}
                 />
                 <span className="confirmationOptionText">{option}</span>
               </label>
             ))}
+            <label
+              className={`confirmationOption ${useCustomInput ? "selected" : ""}`}
+            >
+              <input
+                type="radio"
+                name="confirmation-option"
+                checked={useCustomInput}
+                onChange={handleSelectCustom}
+                disabled={isSubmitting}
+              />
+              <span className="confirmationOptionText">自定义回复...</span>
+            </label>
+            {useCustomInput && (
+              <div className="confirmationInput">
+                <textarea
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="请输入您的自定义回复..."
+                  disabled={isSubmitting}
+                  rows={3}
+                  maxLength={4000}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="confirmationInput">
@@ -94,7 +135,7 @@ export function ConfirmationDialog({
         <button
           className="confirmationBtn confirmationBtnConfirm"
           onClick={handleSubmit}
-          disabled={isSubmitting || (hasOptions ? selectedOption === null : !customInput.trim())}
+          disabled={isSubmitting || !canSubmit}
         >
           {isSubmitting ? "提交中..." : "确认"}
         </button>

@@ -418,6 +418,11 @@
   gap: 6px;
 }
 
+.confirmationOptions .confirmationInput {
+  margin-top: 2px;
+  padding-left: 22px;
+}
+
 .confirmationOption {
   display: flex;
   align-items: center;

@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import {
   appendLog,
-  confirmTaskToRunning,
+  confirmTaskWithMessage,
   createStages,
   getProject,
   getProjectSettings,
@@ -15,7 +15,6 @@ import {
   createAgentRun,
   completeAgentRun,
   createArtifact,
-  createTaskMessage,
   getLatestAgentRunForStage,
   getRecoverableTasks,
   setPendingMode,
@@ -153,26 +152,19 @@ class TaskScheduler {
       throw new ConfirmError("确认回复不能为空", 400);
     }
 
-    // 原子性检查+更新，防止并发确认请求
-    if (!confirmTaskToRunning(taskId)) {
-      const current = getTask(taskId);
-      throw new ConfirmError(
-        `任务不在等待确认状态（当前状态: ${current?.status ?? "未知"}）`,
-        409,
-      );
-    }
-
     const truncatedResponse = normalizedResponse.length > MAX_LOG_LENGTH
       ? normalizedResponse.slice(0, MAX_LOG_LENGTH) + "..."
       : normalizedResponse;
     const messageContent = `需求确认回复：${truncatedResponse}`;
 
-    createTaskMessage({
+    const message = confirmTaskWithMessage({
       taskId,
-      role: "user",
       content: messageContent,
-      includeInContext: true,
     });
+    if (!message) {
+      throw new ConfirmError("任务不在等待确认状态", 409);
+    }
+
     this.pendingConfirmationResponses.set(taskId, messageContent);
     appendLog(taskId, "info", `用户确认回复：${truncatedResponse}`, { payload: { userResponse: truncatedResponse } });
     this.log(taskId, "info", "用户已确认，任务继续执行");
