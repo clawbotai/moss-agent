@@ -24,6 +24,8 @@ export interface AgentConfirmationRequest {
   options?: string[];
   /** 默认选项索引 */
   defaultOption?: number;
+  /** Agent 完整输出文本，用于展示上下文 */
+  rawOutput?: string;
 }
 
 export interface AgentRunResult {

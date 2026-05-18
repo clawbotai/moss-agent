@@ -4,6 +4,7 @@ import { Copy } from "lucide-react";
 import { useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 
 function CopyButton({ text }: { text: string }) {
   const handleCopy = useCallback(() => {
@@ -22,7 +23,7 @@ export function MarkdownBlock({ content, className = "" }: { content: string; cl
     <div className={`markdownBlock ${className}`}>
       <CopyButton text={content} />
       <div className="markdownBody">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{content}</ReactMarkdown>
       </div>
     </div>
   );

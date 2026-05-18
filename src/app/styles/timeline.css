@@ -399,6 +399,71 @@
   color: var(--info);
 }
 
+.confirmationContext {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.confirmationContext summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.confirmationContext summary::-webkit-details-marker {
+  display: none;
+}
+
+.confirmationContext summary:hover {
+  color: var(--text-secondary);
+}
+
+.confirmationContext[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.confirmationContext summary svg {
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.confirmationContextBody {
+  padding: 8px 16px 12px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.55;
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+}
+
+.confirmationContextBody .markdownBlock {
+  margin-top: 0;
+}
+
+.confirmationContextBody .markdownBlock > *:first-child {
+  margin-top: 0;
+}
+
+.confirmationContextBody .markdownBlock > *:last-child {
+  margin-bottom: 0;
+}
+
+.confirmationContextBody table {
+  font-size: 0.7rem;
+}
+
+.confirmationContextBody th,
+.confirmationContextBody td {
+  padding: 3px 6px;
+}
+
 .confirmationQuestion {
   padding: 12px 16px;
   font-size: 0.8rem;

@@ -15,6 +15,8 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - 新增 `/api/tasks/[taskId]/confirm` API 端点处理用户确认回复
   - UI 新增 ConfirmationDialog 组件，支持选项选择和自由文本输入两种确认方式
   - 确认对话框支持用户自定义回复：即使 agent 提供了选项，用户仍可选择"自定义回复"输入任意文本
+  - 确认对话框展示 agent 完整输出上下文：支持多组 [OPTIONS] 标签，对话框可折叠查看 agent 提问详情（markdown 渲染）
+  - 兼容已有等待任务：从 stage 日志中自动提取 agent 完整输出作为上下文
   - 任务详情页自动检测等待确认状态并展示确认交互界面
   - 支持 ANSI 转义码清理，确保 CLI 输出检测准确性
   - 用户确认回复会写入当前任务消息并注入下一次 agent 恢复上下文，确保确认后能继续当前阶段

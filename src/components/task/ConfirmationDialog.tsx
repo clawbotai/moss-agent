@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ChevronDown } from "lucide-react";
 import type { AgentConfirmationRequest } from "@/lib/agents/types";
+import { MarkdownBlock } from "./MarkdownBlock";
 
 interface ConfirmationDialogProps {
   confirmationRequest: AgentConfirmationRequest;
@@ -24,6 +25,8 @@ export function ConfirmationDialog({
   const [customInput, setCustomInput] = useState("");
   const options = confirmationRequest.options;
   const hasOptions = options && options.length > 0;
+  const hasContext = confirmationRequest.rawOutput
+    && confirmationRequest.rawOutput.trim() !== confirmationRequest.question.trim();
 
   const handleSelectOption = useCallback((index: number) => {
     setSelectedOption(index);
@@ -61,6 +64,18 @@ export function ConfirmationDialog({
         <HelpCircle size={16} />
         <span>需要确认</span>
       </div>
+
+      {hasContext && (
+        <details className="confirmationContext">
+          <summary>
+            <ChevronDown size={12} />
+            <span>查看 agent 提问详情</span>
+          </summary>
+          <div className="confirmationContextBody">
+            <MarkdownBlock content={confirmationRequest.rawOutput!} />
+          </div>
+        </details>
+      )}
 
       <div className="confirmationQuestion">
         {confirmationRequest.question}

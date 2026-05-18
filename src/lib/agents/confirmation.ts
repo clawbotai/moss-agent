@@ -13,11 +13,11 @@ export function detectConfirmationRequest(output: string, skipJsonExtraction = f
 
   // 方式 1：检测显式格式
   const explicitResult = detectExplicitConfirmation(normalizedOutput);
-  if (explicitResult) return explicitResult;
+  if (explicitResult) return { ...explicitResult, rawOutput: normalizedOutput };
 
   // 方式 2：智能检测包含选项的问题
   const smartResult = detectSmartConfirmation(normalizedOutput);
-  if (smartResult) return smartResult;
+  if (smartResult) return { ...smartResult, rawOutput: normalizedOutput };
 
   return undefined;
 }
@@ -71,7 +71,7 @@ function detectExplicitConfirmation(output: string): AgentConfirmationRequest | 
   const lines = output.split("\n").map((line) => line.trim());
 
   let question: string | null = null;
-  let options: string[] | undefined;
+  const allOptions: string[] = [];
   let defaultOption: number | undefined;
 
   for (const line of lines) {
@@ -82,13 +82,14 @@ function detectExplicitConfirmation(output: string): AgentConfirmationRequest | 
       continue;
     }
 
-    // 检测选项列表
+    // 检测选项列表（支持多组 [OPTIONS]，每组追加而非覆盖）
     const optionsMatch = line.match(/^\[OPTIONS\]\s*(.+)$/i);
     if (optionsMatch) {
-      options = optionsMatch[1]
+      const parsed = optionsMatch[1]
         .split("|")
         .map((opt) => opt.trim())
         .filter(Boolean);
+      allOptions.push(...parsed);
       continue;
     }
 
@@ -101,6 +102,8 @@ function detectExplicitConfirmation(output: string): AgentConfirmationRequest | 
   }
 
   if (!question) return undefined;
+
+  const options = allOptions.length > 0 ? allOptions : undefined;
 
   // 校验 defaultOption 不越界
   if (defaultOption !== undefined && options && defaultOption >= options.length) {
@@ -215,7 +218,7 @@ function detectSmartConfirmation(output: string): AgentConfirmationRequest | und
   // 备用检测：以问号结尾 + 意图关键词的行 + 后续有选项
   let questionLine: string | null = null;
   let questionLineIndex = -1;
-  let allOptions: string[] = [];
+  let fallbackOptions: string[] = [];
 
   for (let i = 0; i < tailLines.length; i++) {
     const line = cleanMarkdown(tailLines[i]);
@@ -223,12 +226,12 @@ function detectSmartConfirmation(output: string): AgentConfirmationRequest | und
     // 检测以问号结尾的行（必须同时包含意图关键词）
     if ((line.endsWith("？") || line.endsWith("?")) && line.length > 10) {
       if (intentKeywords.test(line)) {
-        if (questionLine && allOptions.length >= 2) {
-          return { question: questionLine, options: allOptions };
-        }
-        questionLine = line;
-        questionLineIndex = i;
-        allOptions = [];
+if (questionLine && fallbackOptions.length >= 2) {
+        return { question: questionLine, options: fallbackOptions };
+      }
+      questionLine = line;
+      questionLineIndex = i;
+      fallbackOptions = [];
         continue;
       }
     }
@@ -238,15 +241,15 @@ function detectSmartConfirmation(output: string): AgentConfirmationRequest | und
       for (const pattern of optionPatterns) {
         const match = line.match(pattern);
         if (match) {
-          allOptions.push(match[1].trim());
+          fallbackOptions.push(match[1].trim());
           break;
         }
       }
     }
   }
 
-  if (questionLine && allOptions.length >= 2) {
-    return { question: questionLine, options: allOptions };
+  if (questionLine && fallbackOptions.length >= 2) {
+    return { question: questionLine, options: fallbackOptions };
   }
 
   return undefined;

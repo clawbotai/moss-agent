@@ -9,6 +9,8 @@ import { MemoryConfirm } from "@/components/task/MemoryConfirm";
 import { ConfirmationDialog } from "./ConfirmationDialog";
 import { useTaskConfirmation, parseConfirmationRequest } from "@/hooks/useTaskConfirmation";
 
+const MIN_AGENT_OUTPUT_LENGTH = 100;
+
 export function TaskDetail({ task }: TaskDetailProps) {
   const logsByStage = useMemo(() => {
     const map = new Map<string, TaskLog[]>();
@@ -32,10 +34,32 @@ export function TaskDetail({ task }: TaskDetailProps) {
     return buildConversationTurns(task);
   }, [task]);
 
-  // 解析确认请求
   const confirmationRequest = useMemo(() => {
     if (!task || task.status !== "waiting") return null;
-    return parseConfirmationRequest(task.errorMessage);
+    const parsed = parseConfirmationRequest(task.errorMessage);
+    if (!parsed) return null;
+    if (parsed.rawOutput) return parsed;
+
+    const confirmationLogs = task.logs.filter(
+      (log) => log.stageId
+        && log.payload
+        && typeof log.payload === "object"
+        && "confirmationRequest" in (log.payload as Record<string, unknown>),
+    );
+    if (confirmationLogs.length === 0) return parsed;
+
+    // 取最后一个确认日志的 stageId（最接近当前等待状态）
+    const lastConfirmLog = confirmationLogs[confirmationLogs.length - 1];
+    const stageId = lastConfirmLog.stageId;
+
+    const agentOutputLog = task.logs
+      .filter((log) => log.stageId === stageId && typeof log.message === "string" && log.message.length > MIN_AGENT_OUTPUT_LENGTH)
+      .sort((a, b) => (b.message?.length ?? 0) - (a.message?.length ?? 0))[0];
+
+    if (agentOutputLog?.message) {
+      return { ...parsed, rawOutput: agentOutputLog.message };
+    }
+    return parsed;
   }, [task]);
 
   const { confirm, cancel, isSubmitting } = useTaskConfirmation({

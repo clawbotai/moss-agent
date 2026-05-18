@@ -67,7 +67,6 @@ function testDirectOptionsDoNotFalsePositive() {
 (C) 使用 Zustand
 `;
 
-  // "需求不明确，请选择实现方式：" 以冒号结尾而非问号，不匹配问题行模式；(A)/(B)/(C) 无前导问题不收集
   assert.equal(detectConfirmationRequest(output), undefined);
 }
 
@@ -89,7 +88,6 @@ function testSmartNumberedQuestionWithIntent() {
 }
 
 function testSmartDetectionNoIntentKeywords() {
-  // LLM 正常分析输出：包含编号问题但没有意图关键词，不应触发
   const output = `
 以下是性能优化建议：
 
@@ -125,6 +123,31 @@ function testCodexJsonOutput() {
   assert.equal(result?.defaultOption, 1);
 }
 
+function testExplicitMultipleOptions() {
+  const output = `
+[CONFIRM] 请回答以上 4 个问题，以便我确定方案边界
+[OPTIONS] Q1: A) 透传调用 | B) 平台级调度 | C) 自建 skill 系统
+[OPTIONS] Q2: A) 用户手动 | B) Agent 自动 | C) 流程绑定
+[OPTIONS] Q3: 是，复用现有机制 | 否，需要独立处理
+[OPTIONS] Q4: A) 最小可用 | B) 标准版 | C) 完整版
+[DEFAULT] 0
+`;
+
+  const result = detectConfirmationRequest(output);
+  assert.equal(result?.question, "请回答以上 4 个问题，以便我确定方案边界");
+  assert.equal(result?.options?.length, 11);
+  assert.ok(result?.options?.[0].includes("Q1"));
+  assert.ok(result?.options?.[3].includes("Q2"));
+  assert.equal(result?.defaultOption, 0);
+  assert.ok(result?.rawOutput && result.rawOutput.length > 0);
+}
+
+function testRawOutputPresent() {
+  const output = "some agent output\n[CONFIRM] test question\n[OPTIONS] A | B";
+  const result = detectConfirmationRequest(output);
+  assert.equal(result?.rawOutput, output);
+}
+
 function main() {
   testExplicitOptions();
   testExplicitFreeText();
@@ -134,6 +157,8 @@ function main() {
   testSmartNumberedQuestionWithIntent();
   testSmartDetectionNoIntentKeywords();
   testCodexJsonOutput();
+  testExplicitMultipleOptions();
+  testRawOutputPresent();
   console.log("确认请求检测测试通过");
 }
 
