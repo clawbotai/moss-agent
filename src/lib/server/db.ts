@@ -550,6 +550,17 @@ export function applyTaskMode(taskId: string, mode: TaskMode) {
     .run(mode, nowIso(), taskId);
 }
 
+/**
+ * 原子性地将任务从 waiting 转为 running，返回是否成功。
+ * 防止并发确认请求的 TOCTOU 竞态。
+ */
+export function confirmTaskToRunning(taskId: string): boolean {
+  const result = getDb()
+    .prepare("UPDATE tasks SET status = 'running', errorMessage = NULL, updatedAt = ? WHERE id = ? AND status = 'waiting'")
+    .run(nowIso(), taskId);
+  return result.changes > 0;
+}
+
 export function createStages(taskId: string, stages: Omit<TaskStage, "id" | "taskId">[]) {
   const insert = getDb().prepare(
     `INSERT INTO stages (
@@ -910,11 +921,12 @@ export function getLatestAgentRunForStage(stageId: string): AgentRun | null {
 }
 
 /**
- * 获取服务重启后需要恢复的任务（status 为 running/stuck/waiting）
+ * 获取服务重启后需要恢复的任务（status 为 running/stuck）
+ * waiting 任务必须保持暂停，等待用户显式确认。
  */
 export function getRecoverableTasks(): Task[] {
   return getDb()
-    .prepare("SELECT * FROM tasks WHERE status IN ('running', 'stuck', 'waiting')")
+    .prepare("SELECT * FROM tasks WHERE status IN ('running', 'stuck')")
     .all() as Task[];
 }
 

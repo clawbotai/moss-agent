@@ -6,6 +6,8 @@ import type { TaskDetailProps } from "./types";
 import { buildConversationTurns } from "./utils";
 import { ConversationTurnView, TimelineDebugLogs } from "./TimelineItems";
 import { MemoryConfirm } from "@/components/task/MemoryConfirm";
+import { ConfirmationDialog } from "./ConfirmationDialog";
+import { useTaskConfirmation, parseConfirmationRequest } from "@/hooks/useTaskConfirmation";
 
 export function TaskDetail({ task }: TaskDetailProps) {
   const logsByStage = useMemo(() => {
@@ -30,6 +32,19 @@ export function TaskDetail({ task }: TaskDetailProps) {
     return buildConversationTurns(task);
   }, [task]);
 
+  // 解析确认请求
+  const confirmationRequest = useMemo(() => {
+    if (!task || task.status !== "waiting") return null;
+    return parseConfirmationRequest(task.errorMessage);
+  }, [task]);
+
+  const { confirm, cancel, isSubmitting } = useTaskConfirmation({
+    taskId: task?.id || "",
+    onSuccess: () => {
+      // 任务状态会通过 SSE 自动更新
+    },
+  });
+
   if (!task) return null;
 
   return (
@@ -40,6 +55,16 @@ export function TaskDetail({ task }: TaskDetailProps) {
         ))}
 
         {taskLevelLogs.length > 0 && <TimelineDebugLogs logs={taskLevelLogs} />}
+
+        {/* 确认对话框 */}
+        {task.status === "waiting" && confirmationRequest && (
+          <ConfirmationDialog
+            confirmationRequest={confirmationRequest}
+            onConfirm={confirm}
+            onCancel={cancel}
+            isSubmitting={isSubmitting}
+          />
+        )}
 
         {task.status === "completed" && task.project && (
           <MemoryConfirm projectId={task.projectId} taskId={task.id} />

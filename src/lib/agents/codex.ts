@@ -1,5 +1,6 @@
 import type { AgentAdapter, AgentRunContext, AgentRunResult } from "@/lib/agents/types";
 import { commandExists, runProcess } from "@/lib/agents/process";
+import { detectConfirmationRequest, buildConfirmationInstruction } from "./confirmation";
 
 const CODEX_TIMEOUT_MS = Number(process.env.MOSS_CODEX_TIMEOUT_MS) || 20 * 60 * 1000; // 20 分钟
 
@@ -24,13 +25,14 @@ function buildRunPrompt(context: AgentRunContext) {
     "你是协作调度平台中的 Codex 开发 agent。",
     budgetInstruction(context.budget),
     "请在当前项目目录完成任务，完成后输出变更摘要、验证结果和剩余风险。",
+    buildConfirmationInstruction(),
   ];
 
   // 恢复执行说明
   const attempt = context.attempt ?? 1;
   if (attempt > 1) {
     parts.push("");
-    parts.push(`⚠️ 这是第 ${attempt} 次执行此阶段（上次因超时被终止）。`);
+    parts.push(`⚠️ 这是第 ${attempt} 次执行此阶段（上次执行未完成或需要恢复）。`);
     parts.push("请先检查当前工作区状态和 git diff，了解已完成内容。");
     parts.push("已完成的内容不要重做；继续完成未交付部分。");
   }
@@ -59,7 +61,7 @@ function buildReviewPrompt(context: AgentRunContext) {
   const attempt = context.attempt ?? 1;
   if (attempt > 1) {
     parts.push("");
-    parts.push(`⚠️ 这是第 ${attempt} 次执行审查（上次因超时被终止）。`);
+    parts.push(`⚠️ 这是第 ${attempt} 次执行审查（上次执行未完成或需要恢复）。`);
   }
 
   if (context.resumeHint) {
@@ -75,28 +77,44 @@ function buildReviewPrompt(context: AgentRunContext) {
   return parts.join("\n");
 }
 
-function extractCodexSummary(stdout: string) {
+type CodexJsonEvent = {
+  type?: string;
+  message?: string;
+  content?: string;
+  delta?: string;
+  item?: { type?: string; text?: string };
+};
+
+function extractCodexTextSegments(stdout: string) {
   const lines = stdout
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  for (const line of lines.reverse()) {
+  const segments: string[] = [];
+
+  for (const line of lines) {
     try {
-      const event = JSON.parse(line) as {
-        type?: string;
-        message?: string;
-        content?: string;
-        item?: { type?: string; text?: string };
-      };
-      if (event.message) return event.message;
-      if (event.content) return event.content;
+      const event = JSON.parse(line) as CodexJsonEvent;
+      if (typeof event.message === "string") segments.push(event.message);
+      if (typeof event.content === "string") segments.push(event.content);
+      if (typeof event.delta === "string") segments.push(event.delta);
       // Codex 的 item.completed 事件中 agent_message 类型包含最终输出
-      if (event.type === "item.completed" && event.item?.type === "agent_message" && event.item.text) {
-        return event.item.text;
+      if (event.type === "item.completed" && event.item?.type === "agent_message" && typeof event.item.text === "string") {
+        segments.push(event.item.text);
       }
     } catch {
-      if (line.length > 20) return line;
+      if (line.length > 20) segments.push(line);
     }
+  }
+
+  return segments;
+}
+
+function extractCodexSummary(stdout: string) {
+  const segments = extractCodexTextSegments(stdout);
+  for (const segment of segments.reverse()) {
+    const trimmed = segment.trim();
+    if (trimmed) return trimmed;
   }
   return null;
 }
@@ -116,14 +134,20 @@ async function executeWithResult(
     onStderr: (chunk) => context.onLog(chunk, { stream: "stderr" }),
   });
 
+  const codexText = extractCodexTextSegments(result.stdout).join("\n");
   const summary = extractCodexSummary(result.stdout) || result.stderr.trim() || "Codex 执行结束";
+
+  // Codex 使用 JSON 事件输出，确认标记需要先从事件字段中解包再检测。
+  const confirmationRequest = detectConfirmationRequest(codexText || result.stdout);
+
   return {
-    ok: result.exitCode === 0 && !result.timedOut,
+    ok: result.exitCode === 0 && !result.timedOut && !confirmationRequest,
     summary,
     exitCode: result.exitCode,
     timedOut: result.timedOut,
     aborted: result.aborted,
     signal: result.signal,
+    confirmationRequest,
   };
 }
 

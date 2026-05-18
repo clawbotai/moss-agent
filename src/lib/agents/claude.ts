@@ -1,5 +1,6 @@
 import type { AgentAdapter, AgentRunContext, AgentRunResult } from "@/lib/agents/types";
 import { commandExists, runProcess } from "@/lib/agents/process";
+import { detectConfirmationRequest, buildConfirmationInstruction } from "./confirmation";
 
 const CLAUDE_TIMEOUT_MS = Number(process.env.MOSS_CLAUDE_TIMEOUT_MS) || 20 * 60 * 1000; // 20 分钟
 
@@ -28,13 +29,14 @@ function buildPrompt(role: string, context: AgentRunContext) {
     "请复用本机 Claude Code 配置和可用子 agent 能力。",
     "输出必须包含结论、关键理由、下一步建议。",
     `预算档位：${context.budget}`,
+    buildConfirmationInstruction(),
   ];
 
   // 恢复执行说明
   const attempt = context.attempt ?? 1;
   if (attempt > 1) {
     parts.push("");
-    parts.push(`⚠️ 这是第 ${attempt} 次执行此阶段（上次因超时被终止）。`);
+    parts.push(`⚠️ 这是第 ${attempt} 次执行此阶段（上次执行未完成或需要恢复）。`);
     parts.push("请先读取以下恢复上下文，了解已完成内容和当前工作区状态。");
     parts.push("已完成的内容不要重做；继续完成未交付部分。");
   }
@@ -66,13 +68,18 @@ async function executeWithResult(context: AgentRunContext, role: string): Promis
   });
 
   const summary = result.stdout.trim() || result.stderr.trim() || "Claude Code 执行结束";
+
+  // 检测确认请求
+  const confirmationRequest = detectConfirmationRequest(result.stdout);
+
   return {
-    ok: result.exitCode === 0 && !result.timedOut,
+    ok: result.exitCode === 0 && !result.timedOut && !confirmationRequest,
     summary,
     exitCode: result.exitCode,
     timedOut: result.timedOut,
     aborted: result.aborted,
     signal: result.signal,
+    confirmationRequest,
   };
 }
 

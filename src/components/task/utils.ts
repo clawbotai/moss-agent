@@ -168,7 +168,7 @@ function buildCollaborationEntries(task: TaskWithRelations): CollaborationEntry[
     });
   });
 
-  if (task.errorMessage && !stageErrorMessages.has(task.errorMessage)) {
+  if (task.errorMessage && !stageErrorMessages.has(task.errorMessage) && task.status !== "waiting") {
     entries.push({
       type: "error",
       key: "task-error",

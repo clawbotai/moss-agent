@@ -1,18 +1,21 @@
 import { EventEmitter } from "node:events";
 import {
   appendLog,
+  confirmTaskToRunning,
   createStages,
   getProject,
   getProjectSettings,
   getTask,
   getTaskWithRelations,
   listStages,
+  listTaskMessages,
   resetTaskForRetry,
   updateStage,
   updateTaskStatus,
   createAgentRun,
   completeAgentRun,
   createArtifact,
+  createTaskMessage,
   getLatestAgentRunForStage,
   getRecoverableTasks,
   setPendingMode,
@@ -43,6 +46,30 @@ const RESTART_BACKOFF_MS = Number(process.env.MOSS_AGENT_RESTART_BACKOFF_MS) || 
 const RESTART_BACKOFF_MAX_MS = Number(process.env.MOSS_AGENT_RESTART_BACKOFF_MAX_MS) || 60000;
 const MAX_STAGE_ATTEMPTS = Number(process.env.MOSS_MAX_STAGE_ATTEMPTS) || 3;
 
+/**
+ * 自定义错误类型：用于标识任务等待用户确认的特殊状态。
+ * 避免使用字符串匹配（脆弱），改用类型判断。
+ */
+export class WaitingForConfirmationError extends Error {
+  constructor() {
+    super("WAITING_FOR_CONFIRMATION");
+    this.name = "WaitingForConfirmationError";
+  }
+}
+
+/**
+ * 确认流程业务错误，携带 HTTP 状态码供路由层使用。
+ */
+export class ConfirmError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "ConfirmError";
+  }
+}
+
 type TaskEvent =
   | { type: "log"; taskId: string; log: TaskLog }
   | { type: "task"; taskId: string; task: ReturnType<typeof getTaskWithRelations> }
@@ -53,6 +80,7 @@ class TaskScheduler {
   private queues = new Map<string, Promise<void>>();
   private abortControllers = new Map<string, AbortController>();
   private runningTasks = new Set<string>();
+  private pendingConfirmationResponses = new Map<string, string>();
 
   subscribe(taskId: string, listener: (event: TaskEvent) => void) {
     const handler = (event: TaskEvent) => {
@@ -93,6 +121,7 @@ class TaskScheduler {
       controller.abort();
       this.log(taskId, "warn", "已请求取消当前任务");
     }
+    // 覆盖 errorMessage：清除 waiting 状态下的确认请求 JSON
     updateTaskStatus(taskId, "cancelled", {
       currentStage: null,
       completedAt: nowIso(),
@@ -108,6 +137,71 @@ class TaskScheduler {
     updateTaskStatus(taskId, "running", { errorMessage: null });
     this.log(taskId, "info", "用户选择继续等待当前阶段");
     this.emitTask(taskId);
+  }
+
+  /**
+   * 用户确认后继续执行任务
+   * @param taskId 任务 ID
+   * @param userResponse 用户的确认回复（可以是选项文本或自由文本）
+   */
+  confirmAndContinue(taskId: string, userResponse: string) {
+    const task = getTask(taskId);
+    if (!task) throw new ConfirmError("任务不存在", 404);
+
+    const normalizedResponse = userResponse.trim();
+    if (!normalizedResponse) {
+      throw new ConfirmError("确认回复不能为空", 400);
+    }
+
+    // 原子性检查+更新，防止并发确认请求
+    if (!confirmTaskToRunning(taskId)) {
+      const current = getTask(taskId);
+      throw new ConfirmError(
+        `任务不在等待确认状态（当前状态: ${current?.status ?? "未知"}）`,
+        409,
+      );
+    }
+
+    const truncatedResponse = normalizedResponse.length > MAX_LOG_LENGTH
+      ? normalizedResponse.slice(0, MAX_LOG_LENGTH) + "..."
+      : normalizedResponse;
+    const messageContent = `需求确认回复：${truncatedResponse}`;
+
+    createTaskMessage({
+      taskId,
+      role: "user",
+      content: messageContent,
+      includeInContext: true,
+    });
+    this.pendingConfirmationResponses.set(taskId, messageContent);
+    appendLog(taskId, "info", `用户确认回复：${truncatedResponse}`, { payload: { userResponse: truncatedResponse } });
+    this.log(taskId, "info", "用户已确认，任务继续执行");
+    this.emitTask(taskId);
+    this.enqueue(taskId);
+  }
+
+  private consumeConfirmationResumeHint(taskId: string): string | undefined {
+    let response = this.pendingConfirmationResponses.get(taskId);
+    if (response) {
+      this.pendingConfirmationResponses.delete(taskId);
+    } else {
+      // Fallback: 从数据库最近的 user message 中恢复（服务重启场景）
+      const messages = listTaskMessages(taskId, 20);
+      const confirmMsg = messages
+        .filter((m) => m.role === "user" && m.content.startsWith("需求确认回复："))
+        .pop();
+      if (confirmMsg) response = confirmMsg.content;
+    }
+    if (!response) return undefined;
+    return [
+      "任务此前暂停等待用户确认。",
+      response,
+      "请基于这条确认回复继续当前阶段，不要重复询问同一个确认问题。",
+    ].join("\n");
+  }
+
+  private joinResumeHints(...hints: Array<string | undefined>) {
+    return hints.filter(Boolean).join("\n\n");
   }
 
   notifyTaskUpdated(taskId: string) {
@@ -182,12 +276,17 @@ class TaskScheduler {
   recoverRunningTasks() {
     const recoverableTasks = getRecoverableTasks();
     for (const task of recoverableTasks) {
+      if (task.status === "waiting") {
+        this.log(task.id, "warn", "服务重启，任务仍在等待用户确认，保持暂停状态。");
+        this.emitTask(task.id);
+        continue;
+      }
       this.log(task.id, "warn", "服务重启，恢复执行中任务，将从未完成阶段继续。");
       // 重新入队，scheduler 会自动跳过已完成阶段
       this.enqueue(task.id);
     }
     if (recoverableTasks.length > 0) {
-      console.log(`[MOSS] 已恢复 ${recoverableTasks.length} 个中断的任务`);
+      console.log(`[MOSS] 已处理 ${recoverableTasks.length} 个中断或等待中的任务`);
     }
   }
 
@@ -278,6 +377,14 @@ class TaskScheduler {
       this.emitTask(taskId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "任务执行失败";
+
+      // 等待用户确认：任务已设为 waiting 状态，不要覆盖为 failed
+      if (error instanceof WaitingForConfirmationError) {
+        this.runningTasks.delete(taskId);
+        this.abortControllers.delete(taskId);
+        return;
+      }
+
       const status = controller.signal.aborted ? "cancelled" : "failed";
       updateTaskStatus(taskId, status, {
         currentStage: null,
@@ -308,6 +415,7 @@ class TaskScheduler {
     let persistedResumeHint = latestRun
       ? this.buildPersistedResumeHint(stage, latestRun, attempt)
       : undefined;
+    const confirmationResumeHint = this.consumeConfirmationResumeHint(taskId);
 
     // MAX_STAGE_ATTEMPTS=0 表示不限制重试次数，>0 表示限制
     const maxAttempts = MAX_STAGE_ATTEMPTS > 0 ? MAX_STAGE_ATTEMPTS : Infinity;
@@ -328,9 +436,10 @@ class TaskScheduler {
       if (controller.signal.aborted) throw new Error("任务已取消");
 
       // 构建恢复提示
-      const resumeHint = lastResult
+      const baseResumeHint = lastResult
         ? this.buildResumeHint(stage, lastResult, attempt)
         : persistedResumeHint;
+      const resumeHint = this.joinResumeHints(confirmationResumeHint, baseResumeHint);
       persistedResumeHint = undefined;
 
       lastResult = await this.runStageAttempt(
@@ -532,6 +641,20 @@ class TaskScheduler {
     if (stuckWarned && result.ok) {
       updateTaskStatus(taskId, "running", { currentStage: stage.name, errorMessage: null });
       this.log(taskId, "info", `阶段 ${stage.name} 已恢复正常执行`);
+    }
+
+    // Agent 请求用户确认：暂停任务等待用户回复
+    if (result.confirmationRequest) {
+      updateTaskStatus(taskId, "waiting", {
+        currentStage: stage.name,
+        errorMessage: JSON.stringify(result.confirmationRequest),
+      });
+      this.log(taskId, "info", `阶段 ${stage.name} 需要用户确认：${result.confirmationRequest.question}`, {
+        stageId: stage.id,
+        confirmationRequest: result.confirmationRequest,
+      });
+      this.emitTask(taskId);
+      throw new WaitingForConfirmationError();
     }
 
     if (!result.ok) {

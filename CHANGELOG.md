@@ -4,6 +4,22 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+- Agent 确认交互功能：当 Claude 或 Codex 在执行任务时遇到需求边界问题（需求不明确、存在多种实现方式需要选择等），系统自动检测并暂停任务，等待用户通过 UI 确认后再继续执行
+  - 扩展 AgentRunResult 类型，添加 confirmationRequest 字段让 agent 可以表明需要用户确认
+  - 新增确认请求智能检测机制，自动识别多种问题格式：
+    - 显式格式：agent 可通过 [CONFIRM]、[OPTIONS]、[DEFAULT] 格式输出确认请求
+    - 编号问题格式：`**1. 你的核心场景是什么？**` + 列表选项
+    - Q1/Q2/Q3 格式：`**Q1：...？**` + A/B/C 选项
+  - 调度器支持暂停任务等待用户确认，任务状态变为 "waiting"
+  - 新增 `/api/tasks/[taskId]/confirm` API 端点处理用户确认回复
+  - UI 新增 ConfirmationDialog 组件，支持选项选择和自由文本输入两种确认方式
+  - 任务详情页自动检测等待确认状态并展示确认交互界面
+  - 支持 ANSI 转义码清理，确保 CLI 输出检测准确性
+  - 用户确认回复会写入当前任务消息并注入下一次 agent 恢复上下文，确保确认后能继续当前阶段
+  - 支持从 Codex JSON 事件输出中提取确认标记
+  - 用户取消确认时任务正确停止（状态变为 cancelled）
+
 ### Fixed
 - 修复简单任务（codexOnly/claudeOnly）上下文过重的问题：单阶段任务首次执行时直接使用用户指令，跳过冗余的上下文包构建（阶段摘要、交付摘要等），避免 token 浪费
 - 修复新开任务/切换项目时协作模式未重置的问题：点"新开任务"或切换项目后 mode 回到默认的 collaborative，避免沿用上一个任务的 codexOnly/claudeOnly 设置
@@ -19,6 +35,13 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - 修复 code review 发现的问题：continueAfterMessage 竞态条件防护、continue 路由验证冗余清理、移除未使用的 continueTaskSchema
 - 修复 code review 发现的问题：createTaskSchema 添加 `.strict()` 拒绝已移除的 `memoryMode`/`contextPolicy` 字段，返回 400 而非静默忽略
 - 修复设置面板切换项目时旧项目数据残留问题：加载开始时清空 settings 和 memories 状态
+- 修复 code review 发现的问题：确认交互流程健壮性改进
+  - 确认请求 JSON 不再在时间线中以原始格式展示（waiting 状态跳过 error entry 渲染）
+  - confirm API 使用自定义 `ConfirmError` 类型替代字符串匹配判断 HTTP 状态码
+  - confirm API 和前端 textarea 添加 4000 字符长度上限
+  - `confirmAndContinue` 使用原子性 `confirmTaskToRunning` 防止并发确认竞态
+  - 服务重启后确认回复上下文不丢失：`consumeConfirmationResumeHint` 增加数据库 fallback
+  - ConfirmationDialog 选项添加 `:focus-within` 键盘焦点样式，textarea 添加 maxLength
 
 ### Changed
 - 设置面板默认选中通用模块，导航菜单通用排在记忆之前。

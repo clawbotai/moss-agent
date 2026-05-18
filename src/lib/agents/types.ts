@@ -17,6 +17,15 @@ export interface AgentRunContext {
   resumeHint?: string;
 }
 
+export interface AgentConfirmationRequest {
+  /** 确认问题的描述 */
+  question: string;
+  /** 可选的选项列表（如果为空则为自由文本输入） */
+  options?: string[];
+  /** 默认选项索引 */
+  defaultOption?: number;
+}
+
 export interface AgentRunResult {
   ok: boolean;
   summary: string;
@@ -27,6 +36,8 @@ export interface AgentRunResult {
   aborted?: boolean;
   /** 进程退出信号 */
   signal?: NodeJS.Signals | null;
+  /** Agent 请求用户确认（暂停执行等待用户回复） */
+  confirmationRequest?: AgentConfirmationRequest;
 }
 
 export interface AgentAdapter {

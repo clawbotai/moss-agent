@@ -199,4 +199,9 @@ function main() {
   }
 }
 
-main().catch(console.error);
+try {
+  main();
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+}
