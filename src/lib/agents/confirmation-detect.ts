@@ -12,18 +12,44 @@ export function detectConfirmationRequest(output: string, skipJsonExtraction = f
   const normalizedOutput = skipJsonExtraction ? output : normalizeAgentOutput(output);
 
   const explicitResult = detectExplicitConfirmation(normalizedOutput);
-  if (explicitResult) return { ...explicitResult, rawOutput: normalizedOutput };
+  if (explicitResult) return sanitizeConfirmationRequest({ ...explicitResult, rawOutput: normalizedOutput });
 
   const smartResult = detectSmartConfirmation(normalizedOutput);
-  if (smartResult) return { ...smartResult, rawOutput: normalizedOutput };
+  if (smartResult) return sanitizeConfirmationRequest({ ...smartResult, rawOutput: normalizedOutput });
 
   return undefined;
+}
+
+export function sanitizeConfirmationRequest(request: AgentConfirmationRequest): AgentConfirmationRequest | undefined {
+  const question = request.question?.trim();
+  if (!question) return undefined;
+  if (question.length > 500) return undefined;
+  if (looksLikeAgentEvent(question)) return undefined;
+
+  const options = request.options
+    ?.map((option) => option.trim())
+    .filter((option) => option && option.length <= 300 && !looksLikeAgentEvent(option))
+    .slice(0, 10);
+
+  let defaultOption = request.defaultOption;
+  if (defaultOption !== undefined && (!options || defaultOption < 0 || defaultOption >= options.length)) {
+    defaultOption = undefined;
+  }
+
+  const rawOutput = sanitizeRawOutput(request.rawOutput, question);
+
+  return {
+    question,
+    ...(options && options.length > 0 ? { options } : {}),
+    ...(defaultOption !== undefined ? { defaultOption } : {}),
+    ...(rawOutput ? { rawOutput } : {}),
+  };
 }
 
 function normalizeAgentOutput(output: string): string {
   const lines = output.split("\n");
   const extracted: string[] = [];
-  let parsedJsonLine = false;
+  let hasExtractedText = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -32,15 +58,19 @@ function normalizeAgentOutput(output: string): string {
       const event = JSON.parse(trimmed) as unknown;
       const texts = extractJsonText(event);
       if (texts.length > 0) {
-        parsedJsonLine = true;
+        hasExtractedText = true;
         extracted.push(...texts);
+      }
+      // JSON 解析成功但没有提取到文本时，保留原始行避免丢失内容
+      if (texts.length === 0) {
+        extracted.push(trimmed);
       }
     } catch {
       extracted.push(trimmed);
     }
   }
 
-  return parsedJsonLine && extracted.length > 0 ? extracted.join("\n") : output;
+  return hasExtractedText && extracted.length > 0 ? extracted.join("\n") : output;
 }
 
 function extractJsonText(value: unknown): string[] {
@@ -60,6 +90,25 @@ function extractJsonText(value: unknown): string[] {
   }
 
   return texts;
+}
+
+function looksLikeAgentEvent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (/^\{/.test(trimmed) && /"(?:type|item|command|aggregated_output|exit_code|status)"\s*:/.test(trimmed)) {
+    return true;
+  }
+  return /"type"\s*:\s*"(?:thread\.|turn\.|item\.)/.test(trimmed)
+    || /"type"\s*:\s*"command_execution"/.test(trimmed)
+    || /"aggregated_output"\s*:/.test(trimmed);
+}
+
+function sanitizeRawOutput(rawOutput: string | undefined, question: string): string | undefined {
+  const trimmed = rawOutput?.trim();
+  if (!trimmed || trimmed === question) return undefined;
+  if (looksLikeAgentEvent(trimmed)) return undefined;
+  if (trimmed.length > 5000) return undefined;
+  return trimmed;
 }
 
 function detectExplicitConfirmation(output: string): AgentConfirmationRequest | undefined {

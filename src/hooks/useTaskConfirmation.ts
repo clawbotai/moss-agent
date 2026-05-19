@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { AgentConfirmationRequest } from "@/lib/agents/types";
+import { sanitizeConfirmationRequest } from "@/lib/agents/confirmation-detect";
 
 interface UseTaskConfirmationOptions {
   taskId: string;
@@ -80,7 +81,7 @@ export function parseConfirmationRequest(errorMessage: string | null): AgentConf
   try {
     const parsed = JSON.parse(errorMessage);
     if (parsed.question) {
-      return parsed as AgentConfirmationRequest;
+      return sanitizeConfirmationRequest(parsed as AgentConfirmationRequest) ?? null;
     }
   } catch {
     // 不是 JSON 格式，不是确认请求

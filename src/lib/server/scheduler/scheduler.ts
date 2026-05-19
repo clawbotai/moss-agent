@@ -178,8 +178,8 @@ class TaskScheduler {
     const task = getTask(taskId);
     if (!task) throw new Error("任务不存在");
 
-    // 任务正在运行：保存待生效模式，等当前执行完成后再应用
-    if (this.runningTasks.has(taskId) || ["queued", "running", "stuck", "waiting"].includes(task.status)) {
+    // 任务正在运行（非 waiting）：保存待生效模式，等当前执行完成后再应用
+    if (this.runningTasks.has(taskId) || ["queued", "running", "stuck"].includes(task.status)) {
       if (modeOverride && modeOverride !== task.mode) {
         // 用户明确指定了新模式，记录为待生效
         setPendingMode(taskId, modeOverride);
@@ -201,6 +201,48 @@ class TaskScheduler {
         this.log(taskId, "info", "已记录技能选择变更，当前任务执行完成后自动应用。");
       }
       this.emitTask(taskId);
+      return;
+    }
+
+    // 任务在等待确认状态：用户发送新消息作为隐式确认，恢复执行
+    if (task.status === "waiting") {
+      // 将当前 running 的阶段标记为 completed（确认检测在 stage 完成后触发，导致 stage 未被标记）
+      const stages = listStages(taskId);
+      for (const stage of stages) {
+        if (stage.status === "running") {
+          updateStage(stage.id, {
+            status: "completed",
+            outputSummary: stage.outputSummary || "用户追加说明，继续执行",
+            completedAt: nowIso(),
+          });
+        }
+      }
+
+      // 应用待生效的模式切换
+      if (modeOverride && modeOverride !== task.mode) {
+        setPendingMode(taskId, modeOverride);
+        this.log(taskId, "info", `已记录模式切换（${task.mode} → ${modeOverride}）`);
+      } else if (modeOverride && task.pendingMode) {
+        setPendingMode(taskId, null);
+        this.log(taskId, "info", `已取消之前记录的模式切换，继续使用当前模式：${task.mode}`);
+      }
+
+      // 记录技能选择变更
+      if (skillSelectionOverride) {
+        const json = serializeSkillSelection(skillSelectionOverride);
+        getDb()
+          .prepare("UPDATE tasks SET pendingSkillSelectionJson = ?, updatedAt = ? WHERE id = ?")
+          .run(json, nowIso(), taskId);
+      }
+
+      this.log(taskId, "info", "用户追加说明，恢复等待确认的任务继续执行。");
+      // 直接入队，scheduler 会自动跳过已完成阶段，执行后续阶段
+      updateTaskStatus(taskId, "queued", {
+        currentStage: "等待追加任务执行",
+        errorMessage: null,
+        completedAt: null,
+      });
+      this.enqueue(taskId);
       return;
     }
 

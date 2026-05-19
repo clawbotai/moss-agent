@@ -142,6 +142,10 @@ type CodexJsonEvent = {
   item?: { type?: string; text?: string };
 };
 
+function looksLikeCodexJsonEvent(line: string) {
+  return /^\{/.test(line) && /"type"\s*:\s*"(?:thread\.|turn\.|item\.)/.test(line);
+}
+
 function extractCodexTextSegments(stdout: string) {
   const lines = stdout
     .split("\n")
@@ -160,7 +164,7 @@ function extractCodexTextSegments(stdout: string) {
         segments.push(event.item.text);
       }
     } catch {
-      if (line.length > 20) segments.push(line);
+      if (line.length > 20 && !looksLikeCodexJsonEvent(line)) segments.push(line);
     }
   }
 
@@ -191,12 +195,11 @@ async function executeWithResult(
     onStderr: (chunk) => context.onLog(chunk, { stream: "stderr" }),
   });
 
-  const codexText = extractCodexTextSegments(result.stdout).join("\n");
   const summary = extractCodexSummary(result.stdout) || result.stderr.trim() || "Codex 执行结束";
 
   const confirmationRequest = detectConfirmationRequest(
-    codexText || result.stdout,
-    Boolean(codexText), // codexText 已经是提取后的纯文本，跳过 JSON 解包
+    summary,
+    true,
   );
 
   return {
