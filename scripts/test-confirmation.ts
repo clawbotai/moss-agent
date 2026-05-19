@@ -148,6 +148,82 @@ function testRawOutputPresent() {
   assert.equal(result?.rawOutput, output);
 }
 
+function testOptionsWithNumberedList() {
+  const output = `
+基于对项目架构的分析，我来进行需求面谈。
+
+[CONFIRM] 您希望实现的 skill 调用方案是以下哪种场景？
+[OPTIONS]
+1. **任务级 skill 注入**：在创建任务时指定使用特定 skill
+2. **阶段级 skill 绑定**：在特定阶段自动触发对应 skill
+3. **运行时 skill 选择**：用户在任务执行过程中动态选择调用哪个 skill
+4. **Skill 编排**：将多个 skill 组合成工作流，自动按顺序执行
+[DEFAULT] 0
+`;
+
+  const result = detectConfirmationRequest(output);
+  assert.equal(result?.question, "您希望实现的 skill 调用方案是以下哪种场景？");
+  assert.equal(result?.options?.length, 4);
+  assert.ok(result?.options?.[0].includes("任务级 skill 注入"));
+  assert.ok(result?.options?.[1].includes("阶段级 skill 绑定"));
+  assert.ok(result?.options?.[2].includes("运行时 skill 选择"));
+  assert.ok(result?.options?.[3].includes("Skill 编排"));
+  assert.equal(result?.defaultOption, 0);
+}
+
+function testOptionsWithDashList() {
+  const output = `
+[CONFIRM] 选择技术栈
+[OPTIONS]
+- React
+- Vue
+- Svelte
+[DEFAULT] 1
+`;
+
+  const result = detectConfirmationRequest(output);
+  assert.equal(result?.question, "选择技术栈");
+  assert.deepEqual(result?.options, ["React", "Vue", "Svelte"]);
+  assert.equal(result?.defaultOption, 1);
+}
+
+function testOptionsInlineStillWorks() {
+  const output = `
+[CONFIRM] 请选择实现方式
+[OPTIONS] 使用 React Context 管理状态 | 使用 Redux 管理状态 | 使用 Zustand 管理状态
+[DEFAULT] 0
+`;
+
+  const result = detectConfirmationRequest(output);
+  assert.equal(result?.question, "请选择实现方式");
+  assert.deepEqual(result?.options, [
+    "使用 React Context 管理状态",
+    "使用 Redux 管理状态",
+    "使用 Zustand 管理状态",
+  ]);
+  assert.equal(result?.defaultOption, 0);
+}
+
+function testOptionsWithContinuationLines() {
+  const output = `
+[CONFIRM] 选择部署方案
+[OPTIONS]
+1. 单机部署
+   适合小团队，资源消耗低
+2. 分布式部署
+   适合大规模生产环境
+[DEFAULT] 0
+`;
+
+  const result = detectConfirmationRequest(output);
+  assert.equal(result?.question, "选择部署方案");
+  assert.equal(result?.options?.length, 2);
+  assert.ok(result?.options?.[0].includes("单机部署"));
+  assert.ok(result?.options?.[0].includes("适合小团队"));
+  assert.ok(result?.options?.[1].includes("分布式部署"));
+  assert.ok(result?.options?.[1].includes("适合大规模"));
+}
+
 function main() {
   testExplicitOptions();
   testExplicitFreeText();
@@ -159,6 +235,10 @@ function main() {
   testCodexJsonOutput();
   testExplicitMultipleOptions();
   testRawOutputPresent();
+  testOptionsWithNumberedList();
+  testOptionsWithDashList();
+  testOptionsInlineStillWorks();
+  testOptionsWithContinuationLines();
   console.log("确认请求检测测试通过");
 }
 

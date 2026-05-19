@@ -11,6 +11,7 @@ interface UseTaskConfirmationOptions {
 
 export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfirmationOptions) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const onSuccessRef = useRef(onSuccess);
   const onErrorRef = useRef(onError);
   onSuccessRef.current = onSuccess;
@@ -19,6 +20,7 @@ export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfi
   const confirm = useCallback(
     async (response: string) => {
       setIsSubmitting(true);
+      setError(null);
       try {
         const res = await fetch(`/api/tasks/${taskId}/confirm`, {
           method: "POST",
@@ -27,35 +29,40 @@ export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfi
         });
 
         if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.error || "确认请求失败");
+          const data = await res.json();
+          throw new Error(data.error || "确认请求失败");
         }
 
         onSuccessRef.current?.();
-      } catch (error) {
-        onErrorRef.current?.(error instanceof Error ? error : new Error("确认请求失败"));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "确认请求失败";
+        setError(message);
+        onErrorRef.current?.(err instanceof Error ? err : new Error(message));
       } finally {
         setIsSubmitting(false);
       }
     },
-    [taskId]
+    [taskId],
   );
 
   const cancel = useCallback(async () => {
     setIsSubmitting(true);
+    setError(null);
     try {
       const res = await fetch(`/api/tasks/${taskId}/cancel`, {
         method: "POST",
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "取消请求失败");
+        const data = await res.json();
+        throw new Error(data.error || "取消请求失败");
       }
 
       onSuccessRef.current?.();
-    } catch (error) {
-      onErrorRef.current?.(error instanceof Error ? error : new Error("取消请求失败"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "取消请求失败";
+      setError(message);
+      onErrorRef.current?.(err instanceof Error ? err : new Error(message));
     } finally {
       setIsSubmitting(false);
     }
@@ -65,6 +72,7 @@ export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfi
     confirm,
     cancel,
     isSubmitting,
+    error,
   };
 }
 

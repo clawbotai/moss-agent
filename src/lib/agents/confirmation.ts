@@ -1,259 +1,11 @@
-import type { AgentConfirmationRequest } from "./types";
-
 /**
- * 从 agent 输出中检测确认请求
- * 支持两种方式：
- * 1. 显式格式：[CONFIRM] 问题描述 / [OPTIONS] 选项 / [DEFAULT] 默认值
- * 2. 智能检测：检测输出中包含选项的问题（保守策略，需意图关键词）
+ * 确认请求模块——服务端入口。
  *
- * @param skipJsonExtraction 如果调用方已经做了 JSON 事件文本提取，设为 true 跳过重复解析
+ * 纯检测逻辑已提取到 confirmation-detect.ts（客户端安全）。
+ * 本模块重新导出检测函数以保持向后兼容，并保留仅服务端使用的 prompt 构建函数。
  */
-export function detectConfirmationRequest(output: string, skipJsonExtraction = false): AgentConfirmationRequest | undefined {
-  const normalizedOutput = skipJsonExtraction ? output : normalizeAgentOutput(output);
 
-  // 方式 1：检测显式格式
-  const explicitResult = detectExplicitConfirmation(normalizedOutput);
-  if (explicitResult) return { ...explicitResult, rawOutput: normalizedOutput };
-
-  // 方式 2：智能检测包含选项的问题
-  const smartResult = detectSmartConfirmation(normalizedOutput);
-  if (smartResult) return { ...smartResult, rawOutput: normalizedOutput };
-
-  return undefined;
-}
-
-function normalizeAgentOutput(output: string): string {
-  const lines = output.split("\n");
-  const extracted: string[] = [];
-  let parsedJsonLine = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const event = JSON.parse(trimmed) as unknown;
-      const texts = extractJsonText(event);
-      if (texts.length > 0) {
-        parsedJsonLine = true;
-        extracted.push(...texts);
-      }
-    } catch {
-      extracted.push(trimmed);
-    }
-  }
-
-  return parsedJsonLine && extracted.length > 0 ? extracted.join("\n") : output;
-}
-
-function extractJsonText(value: unknown): string[] {
-  if (!value || typeof value !== "object") return [];
-  const record = value as Record<string, unknown>;
-  const texts: string[] = [];
-
-  for (const key of ["message", "content", "delta"]) {
-    const field = record[key];
-    if (typeof field === "string") texts.push(field);
-  }
-
-  const item = record.item;
-  if (item && typeof item === "object") {
-    const text = (item as Record<string, unknown>).text;
-    if (typeof text === "string") texts.push(text);
-  }
-
-  return texts;
-}
-
-/**
- * 检测显式 [CONFIRM] 格式
- */
-function detectExplicitConfirmation(output: string): AgentConfirmationRequest | undefined {
-  const lines = output.split("\n").map((line) => line.trim());
-
-  let question: string | null = null;
-  const allOptions: string[] = [];
-  let defaultOption: number | undefined;
-
-  for (const line of lines) {
-    // 检测确认请求标记
-    const confirmMatch = line.match(/^\[CONFIRM\]\s*(.+)$/i);
-    if (confirmMatch) {
-      question = confirmMatch[1].trim();
-      continue;
-    }
-
-    // 检测选项列表（支持多组 [OPTIONS]，每组追加而非覆盖）
-    const optionsMatch = line.match(/^\[OPTIONS\]\s*(.+)$/i);
-    if (optionsMatch) {
-      const parsed = optionsMatch[1]
-        .split("|")
-        .map((opt) => opt.trim())
-        .filter(Boolean);
-      allOptions.push(...parsed);
-      continue;
-    }
-
-    // 检测默认选项
-    const defaultMatch = line.match(/^\[DEFAULT\]\s*(\d+)$/i);
-    if (defaultMatch) {
-      defaultOption = parseInt(defaultMatch[1], 10);
-      continue;
-    }
-  }
-
-  if (!question) return undefined;
-
-  const options = allOptions.length > 0 ? allOptions : undefined;
-
-  // 校验 defaultOption 不越界
-  if (defaultOption !== undefined && options && defaultOption >= options.length) {
-    defaultOption = undefined;
-  }
-
-  return {
-    question,
-    options,
-    defaultOption,
-  };
-}
-
-/**
- * 清理 ANSI 转义码和 markdown 标记。
- * 处理两种加粗格式：
- * - 短标记：**Q1**、**1.** → 只清理标记保留编号
- * - 整行包裹：**1. 你的核心场景是什么？** → 清理首尾 **
- */
-function cleanMarkdown(text: string): string {
-  return text
-    .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .trim();
-}
-
-/**
- * 智能检测包含选项的问题（保守策略）
- *
- * 为了避免误触发（LLM 正常输出中经常包含编号问题和选项列表），
- * 智能检测要求同时满足以下条件：
- * 1. 问题 + 选项出现在输出末尾（而非中间的分析段落）
- * 2. 输出包含明确的意图关键词（"请选择"、"请确认"、"等你回复"等）
- *
- * 显式 [CONFIRM] 格式不受这些限制，优先使用显式格式。
- */
-function detectSmartConfirmation(output: string): AgentConfirmationRequest | undefined {
-  const lines = output.split("\n");
-
-  // 意图关键词：只有包含这些才认为是需要用户确认的请求，而非正常分析
-  const intentKeywords = /(?:请选择|请确认|请你|等你|等待你|请告诉我|请回复|需要你|等你回复|请回答)/;
-
-  // 快速检查：整个输出必须包含意图关键词，否则直接返回
-  // 这是防止误触发的核心防线 —— LLM 的正常分析/建议段落不会包含这些词
-  const fullText = lines.map((l) => cleanMarkdown(l)).join(" ");
-  if (!intentKeywords.test(fullText)) return undefined;
-
-  // 只在输出末尾扫描问题+选项（避免中间的分析段落被误判）
-  // 取最后 30 行作为扫描范围
-  const tailStart = Math.max(0, lines.length - 30);
-  const tailLines = lines.slice(tailStart);
-
-  // 检测问题行的模式
-  const questionPatterns = [
-    /(?:Q\d+[：:]\s*|(?:问题\d+[：:]\s*))(.+)[？?]/i,  // Q1: ...? 或 问题1：...?
-    /^\d+[.、）)]\s*(.+)[？?]\s*$/,  // 1. ...? 或 1、...? 或 1) ...?
-  ];
-
-  // 检测选项行的模式（收紧：只匹配有字母前缀或括号格式的选项）
-  const optionPatterns = [
-    /[-•]\s*\(?[A-Da-d]\)?[）).：:：]\s*(.+)/,  // - A) ... 或 - (A) ... 或 - A. ...
-    /\(?[A-Da-d]\)?[）).：:：]\s*(.+)/,  // A) ... 或 (A) ...
-  ];
-
-  let currentQuestion: string | null = null;
-  let currentOptions: string[] = [];
-  let questionIndex = -1;
-
-  for (let i = 0; i < tailLines.length; i++) {
-    const line = cleanMarkdown(tailLines[i]);
-
-    // 跳过空行
-    if (line === "") continue;
-
-    // 检测问题行
-    let isQuestion = false;
-    for (const pattern of questionPatterns) {
-      const match = line.match(pattern);
-      if (match) {
-        // 如果之前有问题和选项，返回结果
-        if (currentQuestion && currentOptions.length >= 2) {
-          return { question: currentQuestion, options: currentOptions };
-        }
-        currentQuestion = match[1].trim();
-        currentOptions = [];
-        questionIndex = i;
-        isQuestion = true;
-        break;
-      }
-    }
-
-    if (isQuestion) continue;
-
-    // 检测选项行（在问题行之后）
-    if (currentQuestion && i > questionIndex) {
-      for (const pattern of optionPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          currentOptions.push(match[1].trim());
-          break;
-        }
-      }
-    }
-  }
-
-  // 检查最后一个问题
-  if (currentQuestion && currentOptions.length >= 2) {
-    return { question: currentQuestion, options: currentOptions };
-  }
-
-  // 备用检测：以问号结尾 + 意图关键词的行 + 后续有选项
-  let questionLine: string | null = null;
-  let questionLineIndex = -1;
-  let fallbackOptions: string[] = [];
-
-  for (let i = 0; i < tailLines.length; i++) {
-    const line = cleanMarkdown(tailLines[i]);
-
-    // 检测以问号结尾的行（必须同时包含意图关键词）
-    if ((line.endsWith("？") || line.endsWith("?")) && line.length > 10) {
-      if (intentKeywords.test(line)) {
-if (questionLine && fallbackOptions.length >= 2) {
-        return { question: questionLine, options: fallbackOptions };
-      }
-      questionLine = line;
-      questionLineIndex = i;
-      fallbackOptions = [];
-        continue;
-      }
-    }
-
-    // 检测选项行
-    if (questionLine && i > questionLineIndex) {
-      for (const pattern of optionPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          fallbackOptions.push(match[1].trim());
-          break;
-        }
-      }
-    }
-  }
-
-  if (questionLine && fallbackOptions.length >= 2) {
-    return { question: questionLine, options: fallbackOptions };
-  }
-
-  return undefined;
-}
+export { detectConfirmationRequest } from "./confirmation-detect";
 
 /**
  * 构建确认请求提示（注入到 agent prompt 中）
@@ -265,6 +17,15 @@ export function buildConfirmationInstruction(): string {
 [CONFIRM] 你的问题描述
 [OPTIONS] 选项1 | 选项2 | 选项3（可选，如果有多选方案）
 [DEFAULT] 0（可选，默认选项的索引，从0开始）
+
+或者使用编号列表格式（适合选项描述较长的情况）：
+
+[CONFIRM] 你的问题描述
+[OPTIONS]
+1. 选项描述1
+2. 选项描述2
+3. 选项描述3
+[DEFAULT] 0
 
 然后停止执行，等待用户回复后再继续。
 `;

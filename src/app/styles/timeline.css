@@ -593,3 +593,9 @@
 .confirmationBtnConfirm:hover:not(:disabled) {
   opacity: 0.9;
 }
+
+.confirmationError {
+  margin-right: auto;
+  font-size: 0.75rem;
+  color: var(--error);
+}

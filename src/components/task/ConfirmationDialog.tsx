@@ -10,6 +10,7 @@ interface ConfirmationDialogProps {
   onConfirm: (response: string) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
+  error?: string | null;
 }
 
 export function ConfirmationDialog({
@@ -17,6 +18,7 @@ export function ConfirmationDialog({
   onConfirm,
   onCancel,
   isSubmitting = false,
+  error,
 }: ConfirmationDialogProps) {
   const [selectedOption, setSelectedOption] = useState<number | null>(
     confirmationRequest.defaultOption ?? null
@@ -140,6 +142,7 @@ export function ConfirmationDialog({
       </div>
 
       <div className="confirmationActions">
+        {error && <span className="confirmationError">{error}</span>}
         <button
           className="confirmationBtn confirmationBtnCancel"
           onClick={onCancel}

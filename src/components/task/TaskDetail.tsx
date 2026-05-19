@@ -8,6 +8,7 @@ import { ConversationTurnView, TimelineDebugLogs } from "./TimelineItems";
 import { MemoryConfirm } from "@/components/task/MemoryConfirm";
 import { ConfirmationDialog } from "./ConfirmationDialog";
 import { useTaskConfirmation, parseConfirmationRequest } from "@/hooks/useTaskConfirmation";
+import { detectConfirmationRequest } from "@/lib/agents/confirmation-detect";
 
 const MIN_AGENT_OUTPUT_LENGTH = 100;
 
@@ -57,16 +58,20 @@ export function TaskDetail({ task }: TaskDetailProps) {
       .sort((a, b) => (b.message?.length ?? 0) - (a.message?.length ?? 0))[0];
 
     if (agentOutputLog?.message) {
-      return { ...parsed, rawOutput: agentOutputLog.message };
+      // 重新检测以补充 options（errorMessage JSON 中可能缺少 options）
+      const redetected = detectConfirmationRequest(agentOutputLog.message, true);
+      return {
+        question: redetected?.question ?? parsed.question,
+        options: redetected?.options ?? parsed.options,
+        defaultOption: redetected?.defaultOption ?? parsed.defaultOption,
+        rawOutput: agentOutputLog.message,
+      };
     }
     return parsed;
   }, [task]);
 
-  const { confirm, cancel, isSubmitting } = useTaskConfirmation({
+  const { confirm, cancel, isSubmitting, error } = useTaskConfirmation({
     taskId: task?.id || "",
-    onSuccess: () => {
-      // 任务状态会通过 SSE 自动更新
-    },
   });
 
   if (!task) return null;
@@ -88,6 +93,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
             onConfirm={confirm}
             onCancel={cancel}
             isSubmitting={isSubmitting}
+            error={error}
           />
         )}
 

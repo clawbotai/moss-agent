@@ -24,6 +24,10 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - 用户取消确认时任务正确停止（状态变为 cancelled）
 
 ### Fixed
+- 修复确认对话框选项丢失导致点击确认无反应的问题：Agent 输出 `[OPTIONS]` 后接编号列表（如 `1. 方案A\n2. 方案B`）时，正则只匹配同行内容导致 options 为空，对话框退化为纯文本输入。检测逻辑新增对 `[OPTIONS]` 后接编号/无序/缩进续行列表格式支持；`TaskDetail` 在从 stage 日志恢复 rawOutput 时重新运行检测以补充 options
+- 修复确认 API 错误被静默吞没的问题：`useTaskConfirmation` hook 新增 `error` 状态返回，`ConfirmationDialog` 在操作按钮旁展示错误提示
+- 修复客户端组件与服务端模块耦合风险：纯检测逻辑提取到 `confirmation-detect.ts`（无服务端依赖），`confirmation.ts` 仅保留 re-export 和 prompt 构建函数
+- 更新确认请求 prompt 指令，同时文档化管道分隔和编号列表两种 `[OPTIONS]` 格式
 - 修复简单任务（codexOnly/claudeOnly）上下文过重的问题：单阶段任务首次执行时直接使用用户指令，跳过冗余的上下文包构建（阶段摘要、交付摘要等），避免 token 浪费
 - 修复新开任务/切换项目时协作模式未重置的问题：点"新开任务"或切换项目后 mode 回到默认的 collaborative，避免沿用上一个任务的 codexOnly/claudeOnly 设置
 - 修复追加任务时切换模式不生效的问题：追加消息时将当前 Composer 选中的 mode 传给后端，后端使用新模式构建执行阶段，而非沿用任务原始模式
