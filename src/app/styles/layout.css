@@ -192,6 +192,19 @@
   position: relative;
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.topbarIcon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.topbarIcon svg {
+  display: block;
 }
 
 /* Content Area */

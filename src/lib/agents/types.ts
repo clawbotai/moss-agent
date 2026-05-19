@@ -1,4 +1,4 @@
-import type { AgentDiagnostic, AgentId, BudgetLevel, PermissionLevel } from "@/lib/types";
+import type { AgentDiagnostic, AgentId, AgentSkill, BudgetLevel, PermissionLevel } from "@/lib/types";
 
 export interface AgentRunContext {
   taskId: string;
@@ -15,6 +15,8 @@ export interface AgentRunContext {
   attempt?: number;
   /** 恢复提示：包含上次终止原因、历史输出摘要、工作区状态等 */
   resumeHint?: string;
+  /** 当前阶段启用的技能列表 */
+  skills?: AgentSkill[];
 }
 
 export interface AgentConfirmationRequest {

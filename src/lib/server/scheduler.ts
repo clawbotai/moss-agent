@@ -3,6 +3,7 @@ import {
   appendLog,
   confirmTaskWithMessage,
   createStages,
+  getDb,
   getProject,
   getProjectSettings,
   getTask,
@@ -18,15 +19,18 @@ import {
   getLatestAgentRunForStage,
   getRecoverableTasks,
   setPendingMode,
-  applyTaskMode,
+  applyTaskModeAndSkills,
+  parseSkillSelection,
+  serializeSkillSelection,
 } from "@/lib/server/db";
 import { extractMemoryFromTask } from "@/lib/server/memory";
 import { buildContextPackage, saveContextSnapshot } from "@/lib/server/context";
 import { nowIso } from "@/lib/server/time";
 import { buildStagePrompt, buildWorkflow } from "@/lib/server/workflows";
-import type { AgentRun, ArtifactType, LogLevel, StageStatus, TaskLog, TaskMode, TaskStage } from "@/lib/types";
+import type { AgentRun, ArtifactType, LogLevel, StageStatus, TaskLog, TaskMode, TaskSkillSelection, TaskStage } from "@/lib/types";
 import type { AgentRunResult } from "@/lib/agents/types";
 import { getAgent } from "@/lib/agents/registry";
+import { resolveSkillsForStage } from "@/lib/server/skills";
 
 // 配置常量
 const STUCK_WARN_MS = Number(process.env.MOSS_STUCK_WARN_MS) || 120000; // 2 分钟警告
@@ -200,7 +204,7 @@ class TaskScheduler {
     this.emitTask(taskId);
   }
 
-  continueAfterMessage(taskId: string, modeOverride?: TaskMode) {
+  continueAfterMessage(taskId: string, modeOverride?: TaskMode, skillSelectionOverride?: TaskSkillSelection) {
     const task = getTask(taskId);
     if (!task) throw new Error("任务不存在");
 
@@ -218,6 +222,14 @@ class TaskScheduler {
       } else {
         this.log(taskId, "info", "已收到追加说明，当前任务执行中，后续阶段会带入该补充。");
       }
+      // 运行中任务：记录 pendingSkillSelection
+      if (skillSelectionOverride) {
+        const json = serializeSkillSelection(skillSelectionOverride);
+        getDb()
+          .prepare("UPDATE tasks SET pendingSkillSelectionJson = ?, updatedAt = ? WHERE id = ?")
+          .run(json, nowIso(), taskId);
+        this.log(taskId, "info", "已记录技能选择变更，当前任务执行完成后自动应用。");
+      }
       this.emitTask(taskId);
       return;
     }
@@ -233,10 +245,19 @@ class TaskScheduler {
     // 确定实际使用的模式：显式传入 > 待生效模式 > 任务原始模式
     const pendingMode = task.pendingMode;
     const effectiveMode = modeOverride || pendingMode || task.mode;
-    if (effectiveMode !== task.mode || pendingMode) {
-      applyTaskMode(taskId, effectiveMode);
+
+    // 确定实际使用的技能选择：显式传入 > 待生效 > 任务原始
+    const pendingSkillJson = task.pendingSkillSelectionJson;
+    const effectiveSkillSelection = skillSelectionOverride
+      ?? (pendingSkillJson ? parseSkillSelection(pendingSkillJson) : null)
+      ?? parseSkillSelection(task.skillSelectionJson);
+    const effectiveSkillJson = serializeSkillSelection(effectiveSkillSelection);
+
+    // 原子性应用 mode 和 skillSelection
+    if (effectiveMode !== task.mode || pendingMode || effectiveSkillJson !== task.skillSelectionJson) {
+      applyTaskModeAndSkills(taskId, effectiveMode, effectiveSkillJson);
     }
-    const effectiveTask = { ...task, mode: effectiveMode, pendingMode: null };
+    const effectiveTask = { ...task, mode: effectiveMode, pendingMode: null, skillSelectionJson: effectiveSkillJson };
 
     const existingStages = listStages(taskId);
     const nextOrderIndex = existingStages.reduce(
@@ -496,12 +517,20 @@ class TaskScheduler {
     const isSimpleFirstStage = (task.mode === "codexOnly" || task.mode === "claudeOnly" || task.mode === "custom")
       && previousSummaries.length === 0 && stage.role === "implement";
 
+    const skillSelection = parseSkillSelection(task.skillSelectionJson);
+    const skills = resolveSkillsForStage(skillSelection, stage.agent);
+    const skillNames = skills.map((s) => s.id).join(", ");
+
     let prompt: string;
     let inputSummary: string;
 
     if (isSimpleFirstStage) {
       prompt = task.prompt;
-      inputSummary = `attempt: ${attempt}\n${prompt.slice(0, 900)}`;
+      inputSummary = [
+        `attempt: ${attempt}`,
+        skillNames ? `启用技能：${skillNames}` : null,
+        prompt.slice(0, 900),
+      ].filter(Boolean).join("\n");
     } else {
       const contextPackage = await buildContextPackage(taskId, { stageId: stage.id });
       saveContextSnapshot(taskId, stage.id, contextPackage);
@@ -511,8 +540,9 @@ class TaskScheduler {
         `记忆模式：${contextPackage.memoryMode}`,
         `预估 token：${contextPackage.tokenEstimate}`,
         `attempt: ${attempt}`,
+        skillNames ? `启用技能：${skillNames}` : null,
         prompt.slice(0, 900),
-      ].join("\n");
+      ].filter(Boolean).join("\n");
     }
 
     updateStage(stage.id, {
@@ -521,7 +551,10 @@ class TaskScheduler {
       inputSummary,
     });
     updateTaskStatus(taskId, "running", { currentStage: stage.name });
-    this.log(taskId, "info", `阶段开始：${stage.name}（attempt ${attempt}）`, { stageId: stage.id, agent: stage.agent });
+    const logMessage = skillNames
+      ? `阶段开始：${stage.name}（attempt ${attempt}），启用技能：${skillNames}`
+      : `阶段开始：${stage.name}（attempt ${attempt}）`;
+    this.log(taskId, "info", logMessage, { stageId: stage.id, agent: stage.agent });
     this.emitTask(taskId);
 
     const diagnostic = await getAgent(stage.agent).detect();
@@ -579,6 +612,7 @@ class TaskScheduler {
       onLog,
       attempt,
       resumeHint,
+      skills,
     };
 
     // 记录 Agent Run 开始
@@ -586,7 +620,9 @@ class TaskScheduler {
       taskId,
       stageId: stage.id,
       agent: stage.agent,
-      command: `${stage.agent} ${stage.role} (attempt ${attempt})`,
+      command: skillNames
+        ? `${stage.agent} ${stage.role} (attempt ${attempt}) skills=${skillNames}`
+        : `${stage.agent} ${stage.role} (attempt ${attempt})`,
     });
 
     let result: AgentRunResult;

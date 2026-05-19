@@ -2,7 +2,6 @@
 
 import {
   Activity,
-  Bot,
   ClipboardCheck,
   Bug,
   ChevronDown,
@@ -25,15 +24,19 @@ import type {
   Task,
   TaskMessage,
   TaskMode,
+  TaskSkillSelection,
   TaskStage,
   TaskWithRelations,
 } from "@/lib/types";
+import { EMPTY_SKILL_SELECTION } from "@/lib/types";
 import { HealthPill } from "@/components/common/HealthPill";
 import { AnimatedGradient } from "@/components/common/AnimatedGradient";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { ProjectSidebar } from "@/components/sidebar/ProjectSidebar";
 import { TaskDetail } from "@/components/task/TaskDetail";
 import { Composer } from "@/components/composer/Composer";
 import { useTaskEvents } from "@/hooks/useTaskEvents";
+import { useSkills } from "@/hooks/useSkills";
 import { Popover } from "@/components/common/Popover";
 import { SettingsPopover } from "@/components/settings/SettingsPopover";
 
@@ -94,6 +97,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const [mode, setMode] = useState<TaskMode>("collaborative");
   const [budget, setBudget] = useState<BudgetLevel>("standard");
   const [permission, setPermission] = useState<PermissionLevel>("workspaceWrite");
+  const [skillSelection, setSkillSelection] = useState<TaskSkillSelection>(EMPTY_SKILL_SELECTION);
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -104,6 +108,13 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
   const addProjectBtnRef = useRef<HTMLButtonElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  const { skills, loading: skillsLoading, refresh: refreshSkills, fetchSkills } = useSkills();
+
+  // 首次加载技能列表
+  useEffect(() => {
+    void fetchSkills();
+  }, [fetchSkills]);
 
   // 乐观更新状态：与 taskDetails 分离，避免 SSE 事件覆盖
   const [optimisticMessages, setOptimisticMessages] = useState<TaskMessage[]>([]);
@@ -208,11 +219,13 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           targetAgent: mode === "codexOnly" ? "codex" : mode === "claudeOnly" ? "claude" : null,
           budget,
           permission,
+          skillSelection: skillSelection.claude.length > 0 || skillSelection.codex.length > 0 ? skillSelection : undefined,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "创建任务失败");
       setPrompt("");
+      setSkillSelection(EMPTY_SKILL_SELECTION);
       setSelectedTaskId(data.task.id);
       await refresh();
     } catch (innerError) {
@@ -242,6 +255,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
       role: "user",
       content: promptText,
       includeInContext: true,
+      skillSelectionJson: null,
       createdAt: now,
     }]);
     const optimisticStage = optimisticContinuationStage(mode);
@@ -274,6 +288,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           content: promptText,
           includeInContext: true,
           mode,
+          skillSelection: skillSelection.claude.length > 0 || skillSelection.codex.length > 0 ? skillSelection : undefined,
         }),
       });
       const data = (await response.json()) as { task?: TaskWithRelations; error?: string };
@@ -282,6 +297,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
       // 成功：清除乐观数据，让真实数据接管渲染
       setOptimisticMessages([]);
       setOptimisticStages([]);
+      setSkillSelection(EMPTY_SKILL_SELECTION);
       if (data.task) {
         const appendedTask = data.task;
         setTaskDetails(appendedTask);
@@ -308,6 +324,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setPrompt("");
     setError("");
     setMode("collaborative");
+    setSkillSelection(EMPTY_SKILL_SELECTION);
     setOptimisticMessages([]);
     setOptimisticStages([]);
   }
@@ -318,6 +335,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setTaskDetails(null);
     setError("");
     setMode("collaborative");
+    setSkillSelection(EMPTY_SKILL_SELECTION);
     setOptimisticMessages([]);
     setOptimisticStages([]);
   }
@@ -329,6 +347,12 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
     setError("");
     setOptimisticMessages([]);
     setOptimisticStages([]);
+    // 同步任务的 skillSelection
+    if (taskDetails && taskDetails.id === taskId) {
+      setSkillSelection(taskDetails.skillSelection || EMPTY_SKILL_SELECTION);
+    } else {
+      setSkillSelection(EMPTY_SKILL_SELECTION);
+    }
   }
 
   return (
@@ -475,7 +499,7 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
             <section className="heroPanel">
               <AnimatedGradient />
               <div className="appIcon">
-                <Bot size={34} />
+                <BrandLogo size={88} decorative />
               </div>
               <h1>MOSS 协作调度台</h1>
               <p>选择项目、输入任务，调度 Claude Code 与 Codex 按阶段协作。</p>
@@ -515,6 +539,11 @@ export function Workbench({ initialTaskId, initialProjectId }: { initialTaskId?:
           busy={busy}
           selectedProjectId={selectedProjectId}
           error={error}
+          skills={skills}
+          skillSelection={skillSelection}
+          onSkillSelectionChange={setSkillSelection}
+          onRefreshSkills={refreshSkills}
+          skillsLoading={skillsLoading}
           onPromptChange={setPrompt}
           onModeChange={setMode}
           onBudgetChange={setBudget}

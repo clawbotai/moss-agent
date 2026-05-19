@@ -5,6 +5,11 @@ export const createProjectSchema = z.object({
   path: z.string().trim().min(1),
 });
 
+export const skillSelectionSchema = z.object({
+  claude: z.array(z.string()).max(1, "第一版每个 agent 最多选择 1 个 skill"),
+  codex: z.array(z.string()).max(1, "第一版每个 agent 最多选择 1 个 skill"),
+});
+
 export const createTaskSchema = z
   .object({
     projectId: z.string().uuid(),
@@ -14,6 +19,7 @@ export const createTaskSchema = z
     targetAgent: z.enum(["claude", "codex", "custom"]).nullable().optional(),
     budget: z.enum(["low", "standard", "high"]),
     permission: z.enum(["readOnly", "workspaceWrite", "fullAccess"]),
+    skillSelection: skillSelectionSchema.optional(),
   })
   .strict();
 
@@ -32,6 +38,7 @@ export const createTaskMessageSchema = z.object({
   content: z.string().trim().min(1).max(12000),
   includeInContext: z.boolean().optional(),
   mode: z.enum(["collaborative", "codexOnly", "claudeOnly", "custom"]).optional(),
+  skillSelection: skillSelectionSchema.optional(),
 });
 
 export const switchAgentSchema = z.object({

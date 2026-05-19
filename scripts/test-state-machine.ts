@@ -6,6 +6,7 @@ import type { TaskStatus, StageStatus } from "../src/lib/types";
 
 // 模拟项目
 const TEST_PROJECT_ID = "test-project";
+type StageRow = { id: string; status: StageStatus };
 
 function setupTestProject() {
   const db = getDb();
@@ -67,10 +68,7 @@ function testTaskTransitions() {
     const db = getDb();
     db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(from, task.id);
 
-    // 尝试转换
-    const warnBefore = (console.warn as any).__calls?.length ?? 0;
     updateTaskStatus(task.id, to);
-    const warnAfter = (console.warn as any).__calls?.length ?? 0;
 
     const current = getTask(task.id);
     if (current?.status === to) {
@@ -97,8 +95,8 @@ function testTaskTransitions() {
     // 捕获 warn
     let warnCalled = false;
     const originalWarn = console.warn;
-    console.warn = (...args: any[]) => {
-      if (args[0]?.includes("非法状态转换")) {
+    console.warn = (...args: unknown[]) => {
+      if (typeof args[0] === "string" && args[0].includes("非法状态转换")) {
         warnCalled = true;
       }
     };
@@ -106,7 +104,6 @@ function testTaskTransitions() {
     updateTaskStatus(task.id, to);
     console.warn = originalWarn;
 
-    const current = getTask(task.id);
     // 无效转换应该 warn 但仍然写入（当前实现）
     if (warnCalled) {
       passed++;
@@ -158,11 +155,11 @@ function testStageTransitions() {
     }]);
 
     const db = getDb();
-    const stage = db.prepare("SELECT * FROM stages WHERE taskId = ?").get(task.id) as any;
+    const stage = db.prepare("SELECT id, status FROM stages WHERE taskId = ?").get(task.id) as StageRow | undefined;
 
     if (stage) {
       updateStage(stage.id, { status: to });
-      const updated = db.prepare("SELECT * FROM stages WHERE id = ?").get(stage.id) as any;
+      const updated = db.prepare("SELECT id, status FROM stages WHERE id = ?").get(stage.id) as StageRow | undefined;
 
       if (updated?.status === to) {
         passed++;

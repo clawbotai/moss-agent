@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mossLogoBg" x1="9" y1="7" x2="58" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B7CF8"/>
+      <stop offset="0.52" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#312E81"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#mossLogoBg)"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.25" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1.5"/>
+  <path d="M17.5 44.5V20.5L32 34L46.5 20.5V44.5" stroke="#F4FFFB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17.5 20.5L32 34L46.5 20.5" stroke="#DDE0FF" stroke-opacity="0.78" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="46.5" cy="20.5" r="3" fill="#F4FFFB"/>
+</svg>

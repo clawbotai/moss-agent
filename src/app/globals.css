@@ -261,9 +261,18 @@ a {
 
   .topbar {
     flex-direction: column;
+    align-items: stretch;
     height: auto;
     padding: 12px 16px;
     gap: 12px;
+  }
+
+  .topbarLeft {
+    width: 100%;
+  }
+
+  .projectBadge {
+    min-width: 0;
   }
 
   .topStatus {

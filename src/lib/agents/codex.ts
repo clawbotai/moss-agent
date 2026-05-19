@@ -1,6 +1,7 @@
 import type { AgentAdapter, AgentRunContext, AgentRunResult } from "@/lib/agents/types";
 import { commandExists, runProcess } from "@/lib/agents/process";
 import { detectConfirmationRequest, buildConfirmationInstruction } from "./confirmation";
+import { extractSkillSummary } from "@/lib/server/skills";
 
 const CODEX_TIMEOUT_MS = Number(process.env.MOSS_CODEX_TIMEOUT_MS) || 20 * 60 * 1000; // 20 分钟
 
@@ -20,6 +21,48 @@ function budgetInstruction(budget: AgentRunContext["budget"]) {
   return "使用标准 token 策略：优先摘要、关键路径和必要验证。";
 }
 
+function buildSkillInstructions(skills: AgentRunContext["skills"]): string | null {
+  if (!skills || skills.length === 0) return null;
+
+  const builtinSkills = skills.filter((s) => s.builtin);
+  const normalSkills = skills.filter((s) => !s.builtin);
+
+  const parts = ["=== 已选择技能 ==="];
+
+  // 内置命令提示
+  if (builtinSkills.length > 0) {
+    parts.push("");
+    parts.push("可用内置命令（根据需要自行使用）：");
+    for (const skill of builtinSkills) {
+      parts.push(`- ${skill.command || `/${skill.id}`}: ${skill.description || skill.label}`);
+    }
+  }
+
+  // 普通技能注入
+  if (normalSkills.length > 0) {
+    parts.push("");
+    parts.push("你必须优先使用以下技能完成任务：");
+
+    for (const skill of normalSkills) {
+      parts.push("");
+      parts.push(`Skill: ${skill.id}`);
+      if (skill.description) parts.push(`Description: ${skill.description}`);
+
+      if (skill.path) {
+        const summary = extractSkillSummary(skill.path);
+        if (summary) {
+          parts.push("Instructions:");
+          parts.push(summary);
+        }
+      }
+    }
+  }
+
+  parts.push("");
+  parts.push("=== 已选择技能结束 ===");
+  return parts.join("\n");
+}
+
 function buildRunPrompt(context: AgentRunContext) {
   const parts = [
     "你是协作调度平台中的 Codex 开发 agent。",
@@ -27,6 +70,13 @@ function buildRunPrompt(context: AgentRunContext) {
     "请在当前项目目录完成任务，完成后输出变更摘要、验证结果和剩余风险。",
     buildConfirmationInstruction(),
   ];
+
+  // 注入技能说明
+  const skillInstructions = buildSkillInstructions(context.skills);
+  if (skillInstructions) {
+    parts.push("");
+    parts.push(skillInstructions);
+  }
 
   // 恢复执行说明
   const attempt = context.attempt ?? 1;
@@ -57,6 +107,13 @@ function buildReviewPrompt(context: AgentRunContext) {
     "只进行审查，不要修改文件；如果需要审查代码变更，请先读取 git status 和 git diff。",
     budgetInstruction(context.budget),
   ];
+
+  // 注入技能说明
+  const skillInstructions = buildSkillInstructions(context.skills);
+  if (skillInstructions) {
+    parts.push("");
+    parts.push(skillInstructions);
+  }
 
   const attempt = context.attempt ?? 1;
   if (attempt > 1) {

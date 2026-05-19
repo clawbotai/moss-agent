@@ -2,6 +2,33 @@ export type AgentId = "claude" | "codex" | "custom";
 
 export type TaskMode = "collaborative" | "codexOnly" | "claudeOnly" | "custom";
 
+// ─── Skill Types ──────────────────────────────────────────
+
+export type SkillAgent = "claude" | "codex" | "both";
+
+export type SkillSource = "builtin" | "codex-skill" | "claude-skill" | "project" | "plugin";
+
+export interface AgentSkill {
+  id: string;
+  label: string;
+  agent: SkillAgent;
+  source: SkillSource;
+  path: string | null;
+  description: string | null;
+  command: string | null;
+  builtin: boolean;
+}
+
+export interface TaskSkillSelection {
+  claude: string[];
+  codex: string[];
+}
+
+export const EMPTY_SKILL_SELECTION: TaskSkillSelection = {
+  claude: [],
+  codex: [],
+};
+
 export type BudgetLevel = "low" | "standard" | "high";
 
 export type PermissionLevel = "readOnly" | "workspaceWrite" | "fullAccess";
@@ -50,6 +77,8 @@ export interface Task {
   memoryMode: MemoryMode;
   contextPolicy: string;
   pendingMode: TaskMode | null;
+  skillSelectionJson: string | null;
+  pendingSkillSelectionJson: string | null;
   status: TaskStatus;
   currentStage: string | null;
   summary: string | null;
@@ -91,6 +120,7 @@ export interface TaskMessage {
   role: TaskMessageRole;
   content: string;
   includeInContext: boolean;
+  skillSelectionJson: string | null;
   createdAt: string;
 }
 
@@ -120,6 +150,7 @@ export interface TaskWithRelations extends Task {
   logs: TaskLog[];
   messages: TaskMessage[];
   contextSnapshots: TaskContextSnapshot[];
+  skillSelection: TaskSkillSelection;
 }
 
 export interface CreateTaskInput {
@@ -132,6 +163,7 @@ export interface CreateTaskInput {
   permission: PermissionLevel;
   memoryMode?: MemoryMode;
   contextPolicy?: string;
+  skillSelection?: TaskSkillSelection;
 }
 
 export interface CreateProjectInput {

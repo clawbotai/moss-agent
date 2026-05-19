@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import path from "node:path";
 
 // 允许的命令白名单
@@ -39,8 +39,7 @@ function terminateProcessTree(child: { pid?: number; kill: (signal?: NodeJS.Sign
   } else {
     // Windows: 使用 taskkill 清理进程树
     try {
-      const { execSync } = require("node:child_process");
-      execSync(`taskkill /T /F /PID ${pid}`, { stdio: "ignore" });
+      execFileSync("taskkill", ["/T", "/F", "/PID", String(pid)], { stdio: "ignore" });
     } catch {
       // taskkill 失败，fallback 到直接 kill
       try { child.kill(signal); } catch { /* ignore */ }

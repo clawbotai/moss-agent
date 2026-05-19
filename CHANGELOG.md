@@ -5,6 +5,21 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 ### Added
+- Composer 技能选择与调用功能：用户可在 composer 中查看、搜索和选择技能，选中的技能会注入到对应 agent 的执行上下文
+  - 新增 Skill Registry (`src/lib/server/skills.ts`)：扫描本机可用技能，支持内置命令、Claude skills (`~/.claude/skills/`)、Codex skills (`~/.codex/skills/`) 和项目 skills
+  - 非内置 skill 使用来源前缀生成稳定 ID，避免不同来源同名 skill 互相冲突
+  - 新增 `GET /api/skills` API：返回可用技能列表，支持按 mode 过滤和刷新缓存
+  - 数据库新增 `skillSelectionJson` 和 `pendingSkillSelectionJson` 字段，支持技能选择持久化
+  - 支持任务创建和追加消息时携带技能选择，技能会在对应 agent 阶段注入到 prompt
+  - Claude adapter 注入技能调用说明（名称 + 描述 + 精简 SKILL.md 内容）
+  - Codex adapter 注入技能摘要（结构化提取优先级，6000 字符上限）
+  - 新增前端组件：SkillTriggerButton、SkillPalette、SkillPaletteItem、SelectedSkillChips
+  - 技能面板支持搜索、键盘导航（↑/↓/Enter/Esc）、分组显示和 agent 标签
+  - 已选技能以 chip 形式展示，支持点击移除
+  - 支持按模式过滤技能：codexOnly 只显示 Codex 技能，claudeOnly 只显示 Claude 技能
+  - 内置命令（compact、clear、context、add-dir）现在也可以选择，会在 prompt 中注入命令提示让 agent 自行决定使用时机
+  - 运行中任务切换技能时保存到 pendingSkillSelection，下一轮执行自动应用
+  - 技能文件不存在时优雅降级：warn 日志 + 跳过注入，任务不崩溃
 - Agent 确认交互功能：当 Claude 或 Codex 在执行任务时遇到需求边界问题（需求不明确、存在多种实现方式需要选择等），系统自动检测并暂停任务，等待用户通过 UI 确认后再继续执行
   - 扩展 AgentRunResult 类型，添加 confirmationRequest 字段让 agent 可以表明需要用户确认
   - 新增确认请求智能检测机制，自动识别多种问题格式：
@@ -24,6 +39,8 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - 用户取消确认时任务正确停止（状态变为 cancelled）
 
 ### Fixed
+- 修复技能选择 code review 发现的问题：追加任务保留原有 skillSelection，pending skill JSON 使用安全解析；服务端拒绝 mode 不兼容的 skill bucket；技能面板按模式过滤可选项；`GET /api/skills` 校验 mode 参数；忽略 `.sisyphus` 运行状态文件
+- 修复全量 lint 阻塞项：`useTaskConfirmation` 不再在 render 阶段写 ref；测试脚本移除 unused/any；进程树终止逻辑改用 `execFileSync`
 - 修复确认对话框选项丢失导致点击确认无反应的问题：Agent 输出 `[OPTIONS]` 后接编号列表（如 `1. 方案A\n2. 方案B`）时，正则只匹配同行内容导致 options 为空，对话框退化为纯文本输入。检测逻辑新增对 `[OPTIONS]` 后接编号/无序/缩进续行列表格式支持；`TaskDetail` 在从 stage 日志恢复 rawOutput 时重新运行检测以补充 options
 - 修复确认 API 错误被静默吞没的问题：`useTaskConfirmation` hook 新增 `error` 状态返回，`ConfirmationDialog` 在操作按钮旁展示错误提示
 - 修复客户端组件与服务端模块耦合风险：纯检测逻辑提取到 `confirmation-detect.ts`（无服务端依赖），`confirmation.ts` 仅保留 re-export 和 prompt 构建函数

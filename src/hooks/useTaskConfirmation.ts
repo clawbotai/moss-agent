@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { AgentConfirmationRequest } from "@/lib/agents/types";
 
 interface UseTaskConfirmationOptions {
@@ -12,10 +12,6 @@ interface UseTaskConfirmationOptions {
 export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfirmationOptions) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const onSuccessRef = useRef(onSuccess);
-  const onErrorRef = useRef(onError);
-  onSuccessRef.current = onSuccess;
-  onErrorRef.current = onError;
 
   const confirm = useCallback(
     async (response: string) => {
@@ -33,16 +29,16 @@ export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfi
           throw new Error(data.error || "确认请求失败");
         }
 
-        onSuccessRef.current?.();
+        onSuccess?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : "确认请求失败";
         setError(message);
-        onErrorRef.current?.(err instanceof Error ? err : new Error(message));
+        onError?.(err instanceof Error ? err : new Error(message));
       } finally {
         setIsSubmitting(false);
       }
     },
-    [taskId],
+    [taskId, onSuccess, onError],
   );
 
   const cancel = useCallback(async () => {
@@ -58,15 +54,15 @@ export function useTaskConfirmation({ taskId, onSuccess, onError }: UseTaskConfi
         throw new Error(data.error || "取消请求失败");
       }
 
-      onSuccessRef.current?.();
+      onSuccess?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : "取消请求失败";
       setError(message);
-      onErrorRef.current?.(err instanceof Error ? err : new Error(message));
+      onError?.(err instanceof Error ? err : new Error(message));
     } finally {
       setIsSubmitting(false);
     }
-  }, [taskId]);
+  }, [taskId, onSuccess, onError]);
 
   return {
     confirm,

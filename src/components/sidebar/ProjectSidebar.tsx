@@ -1,8 +1,9 @@
 "use client";
 
-import { Search, TerminalSquare } from "lucide-react";
+import { Search } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { StatusDot, statusLabel } from "@/components/common/StatusDot";
+import { BrandLogo } from "@/components/common/BrandLogo";
 
 interface ProjectSidebarProps {
   tasks: Task[];
@@ -34,7 +35,7 @@ export function ProjectSidebar({
     <aside className="sidebar">
       <div className="brand">
         <div className="brandMark">
-          <TerminalSquare size={20} />
+          <BrandLogo size={42} decorative />
         </div>
         <div>
           <strong>Moss Agent</strong>

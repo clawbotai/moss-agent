@@ -8,6 +8,7 @@ coverage
 .env.*
 !.env.example
 .moss-agent
+.sisyphus
 *.log
 .claude/settings.local.json
 .qoder/*

@@ -1,6 +1,7 @@
 import type { AgentAdapter, AgentRunContext, AgentRunResult } from "@/lib/agents/types";
 import { commandExists, runProcess } from "@/lib/agents/process";
 import { detectConfirmationRequest, buildConfirmationInstruction } from "./confirmation";
+import { extractSkillSummary } from "@/lib/server/skills";
 
 const CLAUDE_TIMEOUT_MS = Number(process.env.MOSS_CLAUDE_TIMEOUT_MS) || 20 * 60 * 1000; // 20 分钟
 
@@ -23,6 +24,49 @@ function sanitizeUserInput(input: string): string {
     .slice(0, 50000);
 }
 
+function buildSkillInstructions(skills: AgentRunContext["skills"]): string | null {
+  if (!skills || skills.length === 0) return null;
+
+  const builtinSkills = skills.filter((s) => s.builtin);
+  const normalSkills = skills.filter((s) => !s.builtin);
+
+  const parts = ["=== 已选择技能 ==="];
+
+  // 内置命令提示
+  if (builtinSkills.length > 0) {
+    parts.push("");
+    parts.push("可用内置命令（根据需要自行使用）：");
+    for (const skill of builtinSkills) {
+      parts.push(`- ${skill.command || `/${skill.id}`}: ${skill.description || skill.label}`);
+    }
+  }
+
+  // 普通技能注入
+  if (normalSkills.length > 0) {
+    parts.push("");
+    parts.push("你必须优先使用以下技能完成任务：");
+
+    for (const skill of normalSkills) {
+      parts.push("");
+      parts.push(`Skill: ${skill.id}`);
+      if (skill.description) parts.push(`Description: ${skill.description}`);
+      parts.push(`Invocation: 如当前 Claude Code 环境支持 slash skill，请使用 ${skill.command || `/${skill.id}`}；否则按以下技能说明执行。`);
+
+      if (skill.path) {
+        const summary = extractSkillSummary(skill.path);
+        if (summary) {
+          parts.push("Instructions:");
+          parts.push(summary);
+        }
+      }
+    }
+  }
+
+  parts.push("");
+  parts.push("=== 已选择技能结束 ===");
+  return parts.join("\n");
+}
+
 function buildPrompt(role: string, context: AgentRunContext) {
   const parts = [
     `你是协作调度平台中的 Claude Code ${role} agent。`,
@@ -31,6 +75,13 @@ function buildPrompt(role: string, context: AgentRunContext) {
     `预算档位：${context.budget}`,
     buildConfirmationInstruction(),
   ];
+
+  // 注入技能说明
+  const skillInstructions = buildSkillInstructions(context.skills);
+  if (skillInstructions) {
+    parts.push("");
+    parts.push(skillInstructions);
+  }
 
   // 恢复执行说明
   const attempt = context.attempt ?? 1;

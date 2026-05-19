@@ -5,17 +5,14 @@
 import { getScheduler } from "../src/lib/server/scheduler";
 import {
   createTask,
-  createStages,
-  getTask,
-  listStages,
   getDb,
   updateTaskStatus,
   getRecoverableTasks,
   createProject,
 } from "../src/lib/server/db";
-import type { TaskStatus } from "../src/lib/types";
+import type { Project } from "../src/lib/types";
 
-let testProject: any;
+let testProject: Project | null = null;
 
 function setupTestProject() {
   testProject = createProject({
@@ -33,10 +30,12 @@ function cleanupTestProject() {
 
 function testRecoverableTasks() {
   console.log("=== 测试 1: 可恢复任务查询 ===");
+  if (!testProject) throw new Error("测试项目未初始化");
+  const project = testProject;
 
   // 创建测试任务
   const task1 = createTask({
-    projectId: testProject.id,
+    projectId: project.id,
     prompt: "Running task",
     mode: "collaborative",
     budget: "standard",
@@ -44,7 +43,7 @@ function testRecoverableTasks() {
   });
 
   const task2 = createTask({
-    projectId: testProject.id,
+    projectId: project.id,
     prompt: "Stuck task",
     mode: "collaborative",
     budget: "standard",
@@ -52,7 +51,7 @@ function testRecoverableTasks() {
   });
 
   const task3 = createTask({
-    projectId: testProject.id,
+    projectId: project.id,
     prompt: "Completed task",
     mode: "collaborative",
     budget: "standard",

@@ -18,13 +18,15 @@
 }
 
 .brandMark {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  background: var(--gradient-accent);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-glow);
+  flex: 0 0 auto;
+}
+
+.brandMark svg {
+  display: block;
 }
 
 .brand strong {

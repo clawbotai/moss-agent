@@ -25,11 +25,12 @@ import type {
   TaskMessage,
   TaskMessageRole,
   TaskMode,
+  TaskSkillSelection,
   TaskStage,
   TaskStatus,
   TaskWithRelations,
 } from "@/lib/types";
-import { DERIVE_OPTIONS_DEFAULTS } from "@/lib/types";
+import { DERIVE_OPTIONS_DEFAULTS, EMPTY_SKILL_SELECTION } from "@/lib/types";
 import { nowIso, shortTitle } from "@/lib/server/time";
 
 type DbTaskRow = Omit<Task, "targetAgent"> & { targetAgent: AgentId | null };
@@ -185,6 +186,9 @@ function migrate(database: Database.Database) {
   addColumnIfMissing(database, "tasks", "contextPolicy", "TEXT NOT NULL DEFAULT 'taskSummary'");
   addColumnIfMissing(database, "tasks", "deriveOptionsJson", "TEXT");
   addColumnIfMissing(database, "tasks", "pendingMode", "TEXT");
+  addColumnIfMissing(database, "tasks", "skillSelectionJson", "TEXT");
+  addColumnIfMissing(database, "tasks", "pendingSkillSelectionJson", "TEXT");
+  addColumnIfMissing(database, "task_messages", "skillSelectionJson", "TEXT");
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS artifacts (
@@ -409,6 +413,8 @@ export function createTask(input: CreateTaskInput): Task {
     memoryMode: input.memoryMode || "auto",
     contextPolicy: input.contextPolicy || "auto",
     pendingMode: null,
+    skillSelectionJson: serializeSkillSelection(input.skillSelection ?? EMPTY_SKILL_SELECTION),
+    pendingSkillSelectionJson: null,
     status: "queued",
     currentStage: null,
     summary: null,
@@ -423,10 +429,10 @@ export function createTask(input: CreateTaskInput): Task {
     .prepare(
       `INSERT INTO tasks (
         id, projectId, parentTaskId, title, prompt, mode, targetAgent, budget, permission,
-        memoryMode, contextPolicy,
+        memoryMode, contextPolicy, skillSelectionJson, pendingSkillSelectionJson,
         status, currentStage, summary, errorMessage, createdAt, updatedAt,
         startedAt, completedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       task.id,
@@ -440,6 +446,8 @@ export function createTask(input: CreateTaskInput): Task {
       task.permission,
       task.memoryMode,
       task.contextPolicy,
+      task.skillSelectionJson,
+      task.pendingSkillSelectionJson,
       task.status,
       task.currentStage,
       task.summary,
@@ -482,6 +490,7 @@ export function getTaskWithRelations(taskId: string): TaskWithRelations | null {
     logs: listLogs(taskId, 300),
     messages: listTaskMessages(taskId),
     contextSnapshots: listContextSnapshots(taskId, 12),
+    skillSelection: parseSkillSelection(task.skillSelectionJson),
   };
 }
 
@@ -550,6 +559,48 @@ export function applyTaskMode(taskId: string, mode: TaskMode) {
     .run(mode, nowIso(), taskId);
 }
 
+export function serializeSkillSelection(selection: TaskSkillSelection): string | null {
+  if (selection.claude.length === 0 && selection.codex.length === 0) return null;
+  return JSON.stringify(selection);
+}
+
+export function parseSkillSelection(json: string | null): TaskSkillSelection {
+  if (!json) return EMPTY_SKILL_SELECTION;
+  try {
+    const parsed = JSON.parse(json);
+    if (
+      typeof parsed === "object" &&
+      Array.isArray(parsed.claude) &&
+      Array.isArray(parsed.codex)
+    ) {
+      return { claude: parsed.claude, codex: parsed.codex };
+    }
+    console.warn("[MOSS] skillSelectionJson 格式异常，返回空选择", json);
+    return EMPTY_SKILL_SELECTION;
+  } catch {
+    console.warn("[MOSS] skillSelectionJson 解析失败，返回空选择");
+    return EMPTY_SKILL_SELECTION;
+  }
+}
+
+export function applyTaskModeAndSkills(
+  taskId: string,
+  mode: TaskMode,
+  skillSelectionJson: string | null,
+) {
+  getDb()
+    .prepare(
+      `UPDATE tasks SET
+        pendingMode = NULL,
+        mode = ?,
+        pendingSkillSelectionJson = NULL,
+        skillSelectionJson = ?,
+        updatedAt = ?
+      WHERE id = ?`,
+    )
+    .run(mode, skillSelectionJson, nowIso(), taskId);
+}
+
 /**
  * 原子性地记录确认回复，并将任务从 waiting 转为 running。
  * 防止并发确认请求和部分写入导致的状态不一致。
@@ -576,14 +627,15 @@ export function confirmTaskWithMessage(input: {
       role: "user",
       content: input.content.trim(),
       includeInContext: true,
+      skillSelectionJson: null,
       createdAt: now,
     };
 
     database
       .prepare(
         `INSERT INTO task_messages (
-          id, taskId, role, content, includeInContext, createdAt
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
+          id, taskId, role, content, includeInContext, skillSelectionJson, createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         message.id,
@@ -591,6 +643,7 @@ export function confirmTaskWithMessage(input: {
         message.role,
         message.content,
         1,
+        message.skillSelectionJson,
         message.createdAt,
       );
 
@@ -727,6 +780,7 @@ export function createTaskMessage(input: {
   role: TaskMessageRole;
   content: string;
   includeInContext?: boolean;
+  skillSelection?: TaskSkillSelection;
 }): TaskMessage {
   const task = getTask(input.taskId);
   if (!task) throw new Error("任务不存在");
@@ -737,14 +791,15 @@ export function createTaskMessage(input: {
     role: input.role,
     content: input.content.trim(),
     includeInContext: Boolean(input.includeInContext),
+    skillSelectionJson: serializeSkillSelection(input.skillSelection ?? EMPTY_SKILL_SELECTION),
     createdAt: now,
   };
 
   getDb()
     .prepare(
       `INSERT INTO task_messages (
-        id, taskId, role, content, includeInContext, createdAt
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
+        id, taskId, role, content, includeInContext, skillSelectionJson, createdAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       message.id,
@@ -752,6 +807,7 @@ export function createTaskMessage(input: {
       message.role,
       message.content,
       message.includeInContext ? 1 : 0,
+      message.skillSelectionJson,
       message.createdAt,
     );
 

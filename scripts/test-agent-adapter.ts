@@ -53,12 +53,6 @@ async function testCodexTimeoutConfig() {
 async function testResumeHintInPrompt() {
   console.log("\n=== 测试 3: 恢复提示包含在 prompt 中 ===");
 
-  // 测试 attempt > 1 时的 prompt
-  const context = createMockContext({
-    attempt: 2,
-    resumeHint: "上次执行因超时被终止，请继续。",
-  });
-
   // 通过检测 adapter 的 detect 方法验证 CLI 可用
   const claudeDetect = await claudeAdapter.detect();
   const codexDetect = await codexAdapter.detect();
