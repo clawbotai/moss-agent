@@ -4,6 +4,11 @@ This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Changed
+- 拆分 `scheduler.ts`（859 行）为 `scheduler/` 子目录（types、helpers、scheduler、index）
+- 拆分 `db.ts`（1101 行）为 `db/` 子目录（init、projects、tasks、stages-logs、resources、index）
+- 外部导入路径 `@/lib/server/scheduler` 和 `@/lib/server/db` 通过 barrel 文件保持不变
+
 ### Added
 - Composer 技能选择与调用功能：用户可在 composer 中查看、搜索和选择技能，选中的技能会注入到对应 agent 的执行上下文
   - 新增 Skill Registry (`src/lib/server/skills.ts`)：扫描本机可用技能，支持内置命令、Claude skills (`~/.claude/skills/`)、Codex skills (`~/.codex/skills/`) 和项目 skills

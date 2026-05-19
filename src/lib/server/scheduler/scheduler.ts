@@ -27,56 +27,26 @@ import { extractMemoryFromTask } from "@/lib/server/memory";
 import { buildContextPackage, saveContextSnapshot } from "@/lib/server/context";
 import { nowIso } from "@/lib/server/time";
 import { buildStagePrompt, buildWorkflow } from "@/lib/server/workflows";
-import type { AgentRun, ArtifactType, LogLevel, StageStatus, TaskLog, TaskMode, TaskSkillSelection, TaskStage } from "@/lib/types";
+import type { AgentRun, ArtifactType, LogLevel, TaskMode, TaskSkillSelection, TaskStage } from "@/lib/types";
 import type { AgentRunResult } from "@/lib/agents/types";
 import { getAgent } from "@/lib/agents/registry";
 import { resolveSkillsForStage } from "@/lib/server/skills";
-
-// 配置常量
-const STUCK_WARN_MS = Number(process.env.MOSS_STUCK_WARN_MS) || 120000; // 2 分钟警告
-const STUCK_ABORT_MS = Number(process.env.MOSS_STUCK_ABORT_MS) || 300000; // 5 分钟强制终止
-const MAX_LOG_LENGTH = 4000;
-const MAX_SUMMARY_LENGTH = 8000;
-const MAX_STAGE_SUMMARY_LENGTH = 2000;
-const TERMINAL_STAGE_STATUSES = new Set<StageStatus>([
-  "completed",
-  "failed",
-  "cancelled",
-  "skipped",
-]);
-const SKIPPED_STAGE_ROLES = new Set<TaskStage["role"]>(["summarize"]);
-const RESTART_BACKOFF_MS = Number(process.env.MOSS_AGENT_RESTART_BACKOFF_MS) || 5000;
-const RESTART_BACKOFF_MAX_MS = Number(process.env.MOSS_AGENT_RESTART_BACKOFF_MAX_MS) || 60000;
-const MAX_STAGE_ATTEMPTS = Number(process.env.MOSS_MAX_STAGE_ATTEMPTS) || 3;
-
-/**
- * 自定义错误类型：用于标识任务等待用户确认的特殊状态。
- * 避免使用字符串匹配（脆弱），改用类型判断。
- */
-export class WaitingForConfirmationError extends Error {
-  constructor() {
-    super("WAITING_FOR_CONFIRMATION");
-    this.name = "WaitingForConfirmationError";
-  }
-}
-
-/**
- * 确认流程业务错误，携带 HTTP 状态码供路由层使用。
- */
-export class ConfirmError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-  ) {
-    super(message);
-    this.name = "ConfirmError";
-  }
-}
-
-type TaskEvent =
-  | { type: "log"; taskId: string; log: TaskLog }
-  | { type: "task"; taskId: string; task: ReturnType<typeof getTaskWithRelations> }
-  | { type: "heartbeat"; taskId: string; at: string };
+import {
+  ConfirmError,
+  WaitingForConfirmationError,
+  MAX_LOG_LENGTH,
+  MAX_SUMMARY_LENGTH,
+  MAX_STAGE_SUMMARY_LENGTH,
+  TERMINAL_STAGE_STATUSES,
+  SKIPPED_STAGE_ROLES,
+  STUCK_WARN_MS,
+  STUCK_ABORT_MS,
+  RESTART_BACKOFF_MS,
+  RESTART_BACKOFF_MAX_MS,
+  MAX_STAGE_ATTEMPTS,
+} from "./types";
+import type { TaskEvent } from "./types";
+import { collectRoleSummary, normalizeLogChunk, parseAttemptFromCommand } from "./helpers";
 
 class TaskScheduler {
   private emitter = new EventEmitter();
@@ -807,41 +777,6 @@ class TaskScheduler {
       task: getTaskWithRelations(taskId),
     } satisfies TaskEvent);
   }
-}
-
-function collectRoleSummary(
-  stage: TaskStage,
-  mossAnswerSummaries: string[],
-  deliverableSummaries: string[],
-) {
-  if (!stage.outputSummary) return;
-  const truncated = stage.outputSummary.slice(0, MAX_STAGE_SUMMARY_LENGTH);
-  if (stage.role === "audit") {
-    mossAnswerSummaries.push(truncated);
-  }
-  if (stage.role === "implement") {
-    deliverableSummaries.push(`${stage.name}：${truncated}`);
-  }
-}
-
-function normalizeLogChunk(message: string) {
-  const trimmed = message.trim();
-  if (!trimmed) return "[空输出]";
-  return trimmed.length > MAX_LOG_LENGTH ? `${trimmed.slice(0, MAX_LOG_LENGTH)}...` : trimmed;
-}
-
-/**
- * 从 agent_run 的 command 字符串中解析 attempt 序号
- * 格式: "claude plan (attempt 2)" -> 2
- *
- * 注意：这个方法依赖 command 字符串格式，如果格式变化会 fallback 到 1。
- * 未来建议在 agent_runs 表中添加 attempt 列来结构化存储。
- */
-function parseAttemptFromCommand(command: string) {
-  const match = command.match(/\(attempt\s+(\d+)\)/i);
-  if (!match) return 1;
-  const attempt = Number.parseInt(match[1], 10);
-  return Number.isFinite(attempt) && attempt > 0 ? attempt : 1;
 }
 
 declare global {
